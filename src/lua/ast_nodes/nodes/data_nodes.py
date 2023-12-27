@@ -1,9 +1,17 @@
 from __future__ import annotations
-from collections.abc import Generator, Sequence
+from collections.abc import Iterator
+from itertools import chain
 
 from lua.lexer import BufferedTokenStream
 from lua.exceptions import WrongTokenError
-from lua.ast_nodes.base_nodes import AstNode, DataNode, OperationNode, starts_with
+from lua.ast_nodes.base_nodes import (
+    AstNode,
+    DataNode,
+    OperationNode,
+    starts_with,
+    AstNodeType,
+    NodeFirst,
+)
 from lua.parsing_routines import (
     skip_parenthesis,
     TokenDispatchTable,
@@ -16,9 +24,9 @@ from lua.runtime_routines import iter_sep
 
 
 class NameNode(DataNode):
-    FIRST_NAMES = {"id"}
+    FIRST_NAMES: NodeFirst = {"id"}
 
-    ERROR_NAME = "variable name"
+    ERROR_NAME: str = "variable name"
 
     __slots__ = ("name",)
 
@@ -26,7 +34,7 @@ class NameNode(DataNode):
         self.name = name
 
     @classmethod
-    def from_tokens(cls, stream: BufferedTokenStream, parent: AstNode | None = None):
+    def from_tokens(cls, stream: BufferedTokenStream):
         return cls(name=next(stream).content)
 
     @classmethod
@@ -36,27 +44,24 @@ class NameNode(DataNode):
 
         return index
 
-    def descendants(self) -> Generator[AstNode, None, None]:
-        yield from ()
-
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return (self.name,)
+    def parse_tree_descendants(self):
+        return iter((self.name,))
 
     def __repr__(self):
         return super().__repr__() + f" name: {self.name}"
 
 
 class VarargNode(DataNode):
-    FIRST_CONTENTS = {"..."}
+    FIRST_CONTENTS: NodeFirst = {"..."}
 
-    ERROR_NAME = "vararg expression"
+    ERROR_NAME: str = "vararg expression"
 
     __slots__ = ()
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return ("...",)
+    def parse_tree_descendants(self):
+        return iter(("...",))
 
-    def get_type(self) -> DataNode.DataTypes:
+    def get_type(self):
         return DataNode.DataTypes.VARARG
 
 
@@ -73,10 +78,10 @@ class ConstNode(DataNode):
         },
     )
 
-    FIRST_CONTENTS = _D_T_TYPES.contents.keys()
-    FIRST_NAMES = _D_T_TYPES.names.keys()
+    FIRST_CONTENTS: NodeFirst = _D_T_TYPES.contents.keys()
+    FIRST_NAMES: NodeFirst = _D_T_TYPES.names.keys()
 
-    ERROR_NAME = "consant variable"
+    ERROR_NAME: str = "consant variable"
 
     __slots__ = "value", "d_type"
 
@@ -95,25 +100,22 @@ class ConstNode(DataNode):
                     d_type = DataNode.DataTypes.NUMBER_FLOAT
                     break
 
-        return cls(value=t.content, d_type=d_type)
+        return cls(t.content, d_type)
 
-    def descendants(self) -> Generator[AstNode, None, None]:
-        yield from ()
-
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return (self.value,)
+    def parse_tree_descendants(self):
+        return iter((self.value,))
 
     def __repr__(self):
         return super().__repr__() + f" value: {self.value}"
 
-    def get_type(self) -> DataNode.DataTypes:
+    def get_type(self):
         return self.d_type
 
 
 class TableConstrNode(DataNode):
-    FIRST_CONTENTS: set = {"{"}
+    FIRST_CONTENTS: NodeFirst = {"{"}
 
-    ERROR_NAME = "table constructor"
+    ERROR_NAME: str = "table constructor"
 
     __slots__ = ("field_node_list",)
 
@@ -142,10 +144,13 @@ class TableConstrNode(DataNode):
     def skip(cls, stream: BufferedTokenStream, index: int = 0) -> int:
         return skip_parenthesis(stream, "{", "}", index)
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return "{", *iter_sep(self.field_node_list), "}"
+    def descendants(self):
+        return reversed(self.field_node_list)
 
-    def get_type(self) -> DataNode.DataTypes:
+    def parse_tree_descendants(self):
+        return chain(("}",), iter_sep(reversed(self.field_node_list)), ("{",))
+
+    def get_type(self):
         return DataNode.DataTypes.TABLE
 
 
@@ -160,9 +165,9 @@ class PrefExpNode(DataNode):
         extractor_nodes.MethodGetterNode,
     )
 
-    FIRST_CONTENTS = {"("}
+    FIRST_CONTENTS: NodeFirst = {"("}
 
-    ERROR_NAME = "prefix expression"
+    ERROR_NAME: str = "prefix expression"
 
     __slots__ = "var_node", "extractor_node_list"
 
@@ -226,12 +231,15 @@ class PrefExpNode(DataNode):
 
         return new_index
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
+    def descendants(self):
+        return chain(reversed(self.extractor_node_list), (self.var_node,))
+
+    def parse_tree_descendants(self):
         if isinstance(self.var_node, ExpNode):
-            return ("(", self.var_node, ")", *self.extractor_node_list)
+            return chain(reversed(self.extractor_node_list), (")", self.var_node, "("))
 
         else:
-            return (self.var_node, *self.extractor_node_list)
+            return chain(reversed(self.extractor_node_list), (self.var_node,))
 
 
 # var node is just PrefExpNode which ends with table extractor or
@@ -239,12 +247,12 @@ class PrefExpNode(DataNode):
 
 
 class VarNode(PrefExpNode):
-    ERROR_NAME = "variable"
+    ERROR_NAME: str = "variable"
 
     __slots__ = ()
 
     @classmethod
-    def presented_in_stream(cls, stream: BufferedTokenStream, index: int = 0) -> bool:
+    def presented_in_stream(cls, stream: BufferedTokenStream, index: int = 0):
         # VarNode is PrefExpNode with var = name and extractors = []
         # or just PrefExpNode with extractors[-1] = TableGetterNode
 
@@ -261,9 +269,9 @@ import lua.ast_nodes.nodes.function_nodes as function_nodes
 
 
 class FuncDefNode(DataNode):
-    FIRST_CONTENTS = {"function"}
+    FIRST_CONTENTS: NodeFirst = {"function"}
 
-    ERROR_NAME = "function definition"
+    ERROR_NAME: str = "function definition"
 
     __slots__ = ("funcbody_node",)
 
@@ -279,11 +287,19 @@ class FuncDefNode(DataNode):
             parse_node(stream, function_nodes.FuncBodyNode, next(stream).content)
         )
 
-    def get_type(self) -> DataNode.DataTypes:
+    def get_type(self):
         return DataNode.DataTypes.FUNCTION
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return "function", self.funcbody_node
+    def descendants(self):
+        return iter((self.funcbody_node,))
+
+    def parse_tree_descendants(self):
+        return iter(
+            (
+                "function",
+                self.funcbody_node,
+            )
+        )
 
 
 import lua.ast_nodes.nodes.operation_nodes as operation_nodes
@@ -302,7 +318,7 @@ class ExpNode(DataNode):
         ConstNode, PrefExpNode, TableConstrNode, FuncDefNode, VarargNode
     )
 
-    ERROR_NAME = "expression"
+    ERROR_NAME: str = "expression"
 
     __slots__ = ("data_node",)
 
@@ -352,15 +368,18 @@ class ExpNode(DataNode):
 
         return cls(exp_stack.pop())
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return (self.data_node,)
+    def descendants(self):
+        return iter((self.data_node,))
+
+    def parse_tree_descendants(self):
+        return iter((self.data_node,))
 
 
 @starts_with(ExpNode, NameNode)
 class FieldNode(DataNode):
-    FIRST_CONTENTS = {"["}
+    FIRST_CONTENTS: NodeFirst = {"["}
 
-    ERROR_NAME = "table constructor field"
+    ERROR_NAME: str = "table constructor field"
 
     __slots__ = "index_node", "exp_node"
 
@@ -384,13 +403,19 @@ class FieldNode(DataNode):
 
         return cls(index_node, parse_node(stream, ExpNode, err_name))
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
+    def descendants(self):
+        if self.index_node is not None:
+            return iter((self.exp_node, self.index_node))
+
+        return iter((self.exp_node,))
+
+    def parse_tree_descendants(self):
         match self.index_node:
             case ExpNode():
-                return ("[", self.index_node, "]", "=", self.exp_node)
+                return iter(("]", self.exp_node, "[", "=", self.index_node))
 
             case NameNode():
-                return (self.index_node, "=", self.exp_node)
+                return iter((self.exp_node, "=", self.index_node))
 
             case None:
-                return (self.exp_node,)
+                return iter((self.exp_node,))

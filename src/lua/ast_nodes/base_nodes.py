@@ -1,5 +1,5 @@
 from __future__ import annotations
-from collections.abc import Generator, Callable, KeysView, Sequence
+from collections.abc import Generator, Callable, KeysView, Iterator
 from enum import Enum, auto
 from typing import TextIO, TypeVar
 from itertools import repeat
@@ -15,7 +15,7 @@ class AstNode:
 
     ERROR_NAME: str = ""
 
-    __slots__: tuple = ()
+    __slots__ = ()
 
     def __init__(self):
         pass
@@ -36,43 +36,36 @@ class AstNode:
 
     # methods for tree traversal
 
-    # maybe implementing this method for every node would be better but im too lazy
-    def descendants(self) -> Generator[AstNode, None, None]:
-        for i in self.__slots__:
-            match unit := getattr(self, i):
-                case list():
-                    yield from unit
+    # these methods should return descendants in reversed order
+    def descendants(self) -> Iterator[AstNode]:
+        return iter(())
 
-                case AstNode():
-                    yield unit
+    def parse_tree_descendants(self) -> Iterator[AstNode | str]:
+        return iter(())
 
     # node, depth, descendant number of node, number of node descendants
     def dfs(
         self,
     ) -> Generator[tuple[AstNode, int, int, int], None, None]:
-        stack = [((0, self), 0)]
+        stack: list[tuple[tuple[int, AstNode], int]] = [((0, self), 0)]
         while stack:
-            t = stack.pop()
-            d = tuple(t[0][1].descendants())
-
-            yield t[0][1], t[1], t[0][0], len(d)
-            stack.extend(zip(enumerate(reversed(d)), repeat(t[1])))
-
-    # methods for converting tree to text
-
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return ()
+            (node_num, node), depth = stack.pop()
+            d = len(stack)
+            if isinstance(node, str):
+                print(node)
+            stack.extend(zip(enumerate(node.descendants()), repeat(depth + 1)))
+            yield node, depth, node_num, len(stack) - d
 
     def terminals(self) -> Generator[str, None, None]:
-        stack = [self]
+        stack: list[AstNode | str] = [self]
         while stack:
-            tup = stack.pop()
+            str_or_node = stack.pop()
 
-            if isinstance(tup, str):
-                yield tup
+            if isinstance(str_or_node, str):
+                yield str_or_node
                 continue
 
-            stack.extend(reversed(tup.get_parse_tree_descendants()))
+            stack.extend(str_or_node.parse_tree_descendants())
 
     def __repr__(self):
         return self.__class__.__name__

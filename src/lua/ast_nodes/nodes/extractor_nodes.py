@@ -1,8 +1,9 @@
 from __future__ import annotations
-from collections.abc import Sequence
+from collections.abc import Iterator
+from itertools import chain
 
 from lua.lexer import BufferedTokenStream
-from lua.ast_nodes.base_nodes import AstNode, starts_with
+from lua.ast_nodes.base_nodes import AstNode, NodeFirst, starts_with
 from lua.parsing_routines import (
     skip_parenthesis,
     TokenDispatchTable,
@@ -17,9 +18,9 @@ import lua.ast_nodes.nodes.data_nodes as data_nodes
 
 
 class TableGetterNode(AstNode):
-    FIRST_CONTENTS = {"[", "."}
+    FIRST_CONTENTS: NodeFirst = {"[", "."}
 
-    ERROR_NAME = "table field"
+    ERROR_NAME: str = "table field"
 
     __slots__ = ("field_node",)
 
@@ -41,22 +42,24 @@ class TableGetterNode(AstNode):
     @staticmethod
     def skip(stream: BufferedTokenStream, index: int = 0) -> int:
         if stream.peek(index).content == ".":
-            return index + 2
+            return data_nodes.NameNode.skip(stream, index + 1)
 
         return skip_parenthesis(stream, "[", "]", index)
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        if isinstance(self.field_node, data_nodes.ExpNode):
-            return ("[", self.field_node, "]")
+    def descendants(self):
+        return iter((self.field_node,))
 
-        else:
-            return (".", self.field_node)
+    def parse_tree_descendants(self):
+        if isinstance(self.field_node, data_nodes.ExpNode):
+            return iter(("]", self.field_node, "["))
+
+        return iter((self.field_node, "."))
 
 
 class MethodGetterNode(AstNode):
-    FIRST_CONTENTS = {":"}
+    FIRST_CONTENTS: NodeFirst = {":"}
 
-    ERROR_NAME = "method call"
+    ERROR_NAME: str = "method call"
 
     __slots__ = "name_node", "funcgetter_node"
 
@@ -71,16 +74,20 @@ class MethodGetterNode(AstNode):
             parse_node(stream, FuncGetterNode, data_nodes.NameNode.ERROR_NAME),
         )
 
-    @staticmethod
-    def skip(stream: BufferedTokenStream, index: int = 0) -> int:
-        if stream.peek(index).content == ":":
-            index += 2
-            return FuncGetterNode.skip(stream, index)
+    @classmethod
+    def skip(cls, stream: BufferedTokenStream, index: int = 0) -> int:
+        if stream.peek(index).content in cls.FIRST_CONTENTS:
+            return FuncGetterNode.skip(
+                stream, data_nodes.NameNode.skip(stream, index + 1)
+            )
 
         return index
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return ":", self.name_node, self.funcgetter_node
+    def descendants(self):
+        return iter((self.funcgetter_node, self.name_node))
+
+    def parse_tree_descendants(self):
+        return iter((self.funcgetter_node, self.name_node, ":"))
 
 
 @starts_with(data_nodes.TableConstrNode)
@@ -92,10 +99,10 @@ class FuncGetterNode(AstNode):
         {"string": data_nodes.ConstNode},
     )
 
-    FIRST_CONTENTS = {"("}
-    FIRST_NAMES = {"string"}
+    FIRST_CONTENTS: NodeFirst = {"("}
+    FIRST_NAMES: NodeFirst = {"string"}
 
-    ERROR_NAME = "function call"
+    ERROR_NAME: str = "function call"
 
     __slots__ = ("arg",)
 
@@ -134,9 +141,14 @@ class FuncGetterNode(AstNode):
 
         return data_nodes.TableConstrNode.skip(stream, index)
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return (
-            ("(", *iter_sep(self.arg), ")")
-            if isinstance(self.arg, list)
-            else (self.arg,)
-        )
+    def descendants(self):
+        if isinstance(self.arg, list):
+            return reversed(self.arg)
+
+        return iter((self.arg,))
+
+    def parse_tree_descendants(self):
+        if isinstance(self.arg, list):
+            return chain((")",), iter_sep(reversed(self.arg)), ("(",))
+
+        return iter((self.arg,))

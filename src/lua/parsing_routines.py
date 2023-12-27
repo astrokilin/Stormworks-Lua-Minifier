@@ -1,5 +1,5 @@
 from collections.abc import Generator
-from typing import Any, TypeVar
+from typing import Any
 
 from lua.ast_nodes.base_nodes import AstNode, NodeFirst, AstNodeType
 from lua.lexer import Token, BufferedTokenStream
@@ -21,11 +21,10 @@ def _dict_add_duplicates(src: dict, keys: NodeFirst, value: Any):
     src |= dict.fromkeys(keys - overlap, value)
 
 
-_T = TypeVar("_T")
-
-
 class TokenDispatchTable:
-    def __init__(self, contents: dict[str, _T], names: dict[str, _T]):
+    __slots__ = "contents", "names"
+
+    def __init__(self, contents: dict[str, Any], names: dict[str, Any]):
         self.contents = contents
         self.names = names
 
@@ -48,7 +47,7 @@ class TokenDispatchTable:
     def __contains__(self, token: Token) -> bool:
         return token.content in self.contents or token.name in self.names
 
-    def __getitem__(self, token: Token) -> _T | None:
+    def __getitem__(self, token: Token) -> Any | None:
         return self.names.get(token.name, self.contents.get(token.content))
 
 
@@ -157,11 +156,15 @@ def parse_node_list(
 # like sequences of terms and nonterms
 
 
+# TypeVarTuple cannot properly handle this situation so return type is Any
+# but actually it returns objects of classes specified in rule tuple
+
+
 def parse_simple_rule(
     stream: BufferedTokenStream,
-    rule: tuple[type[AstNodeType] | str, ...],
+    rule: tuple[type[AstNode] | str, ...],
     error_name: str = "",
-) -> Generator[AstNodeType, None, None]:
+) -> Generator[Any, None, None]:
     for unit in rule:
         if isinstance(unit, str):
             parse_terminal(stream, unit, error_name)

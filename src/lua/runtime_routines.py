@@ -1,11 +1,10 @@
-from collections.abc import Iterable
+from collections.abc import Iterator
 from typing import Any
 
 
-def iter_sep(seq: Iterable, sep: Any = ","):
-    if seq:
-        i = iter(seq)
-        yield next(i)
-        for j in i:
+def iter_sep(seq: Iterator[Any], sep: Any = ","):
+    if (t := next(seq, None)) is not None:
+        yield t
+        for j in seq:
             yield sep
             yield j

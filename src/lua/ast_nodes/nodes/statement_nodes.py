@@ -1,8 +1,9 @@
 from __future__ import annotations
-from collections.abc import Sequence
+from collections.abc import Iterator
+from itertools import chain
 
 from lua.lexer import BufferedTokenStream
-from lua.ast_nodes.base_nodes import AstNode, starts_with
+from lua.ast_nodes.base_nodes import AstNode, NodeFirst, starts_with
 from lua.parsing_routines import (
     TokenDispatchTable,
     parse_node_list,
@@ -17,12 +18,12 @@ import lua.ast_nodes.nodes.extractor_nodes as extractor_nodes
 
 
 class FuncCallNode(data_nodes.PrefExpNode):
-    ERROR_NAME = "function call"
+    ERROR_NAME: str = "function call"
 
     __slots__ = ()
 
     @classmethod
-    def presented_in_stream(cls, stream: BufferedTokenStream, index: int = 0) -> bool:
+    def presented_in_stream(cls, stream: BufferedTokenStream, index: int = 0):
         new_index = cls.skip_to_last_ext(stream, index)
 
         if new_index == index:
@@ -37,9 +38,9 @@ class FuncCallNode(data_nodes.PrefExpNode):
 
 
 class LabelNode(AstNode):
-    FIRST_CONTENTS = {"::"}
+    FIRST_CONTENTS: NodeFirst = {"::"}
 
-    ERROR_NAME = "label"
+    ERROR_NAME: str = "label"
 
     __slots__ = ("name_node",)
 
@@ -53,23 +54,26 @@ class LabelNode(AstNode):
         )
         return cls(name_node)
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return "::", self.name_node, "::"
+    def descendants(self):
+        return iter((self.name_node,))
+
+    def parse_tree_descendants(self):
+        return iter(("::", self.name_node, "::"))
 
 
 class BreakNode(AstNode):
-    FIRST_CONTENTS = {"break"}
+    FIRST_CONTENTS: NodeFirst = {"break"}
 
     __slots__ = ()
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return ("break",)
+    def parse_tree_descendants(self):
+        return iter(("break",))
 
 
 class GotoNode(AstNode):
-    FIRST_CONTENTS = {"goto"}
+    FIRST_CONTENTS: NodeFirst = {"goto"}
 
-    ERROR_NAME = "goto statement"
+    ERROR_NAME: str = "goto statement"
 
     __slots__ = ("name_node",)
 
@@ -80,14 +84,17 @@ class GotoNode(AstNode):
     def from_tokens(cls, stream: BufferedTokenStream):
         return cls(parse_node(stream, data_nodes.NameNode, next(stream).content))
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return "goto", self.name_node
+    def descendants(self):
+        return iter((self.name_node,))
+
+    def parse_tree_descendants(self):
+        return iter(self.name_node, "goto")
 
 
 class DoBlockNode(AstNode):
-    FIRST_CONTENTS = {"do"}
+    FIRST_CONTENTS: NodeFirst = {"do"}
 
-    ERROR_NAME = "do statement"
+    ERROR_NAME: str = "do statement"
 
     __slots__ = ("block_node",)
 
@@ -101,17 +108,20 @@ class DoBlockNode(AstNode):
         )
         return cls(block_node)
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return "do", self.block_node, "end"
+    def descendants(self):
+        return iter((self.block_node,))
+
+    def parse_tree_descendants(self):
+        return iter(("end", self.block_node, "do"))
 
 
-# =============================== loop nodes ===========================
+# =============================== loop nodes =================================
 
 
 class WhileLoopNode(AstNode):
-    FIRST_CONTENTS = {"while"}
+    FIRST_CONTENTS: NodeFirst = {"while"}
 
-    ERROR_NAME = "while loop"
+    ERROR_NAME: str = "while loop"
 
     __slots__ = "exp_node", "block_node"
 
@@ -129,14 +139,17 @@ class WhileLoopNode(AstNode):
 
         return cls(exp_node, block_node)
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return "while", self.exp_node, "do", self.block_node, "end"
+    def descendants(self):
+        return iter((self.block_node, self.exp_node))
+
+    def parse_tree_descendants(self):
+        return iter(("end", self.block_node, "do", self.exp_node, "while"))
 
 
 class RepeatLoopNode(AstNode):
-    FIRST_CONTENTS = {"repeat"}
+    FIRST_CONTENTS: NodeFirst = {"repeat"}
 
-    ERROR_NAME = "repeat loop"
+    ERROR_NAME: str = "repeat loop"
 
     __slots__ = "exp_node", "block_node"
 
@@ -153,14 +166,17 @@ class RepeatLoopNode(AstNode):
         )
         return cls(block_node, exp_node)
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return "repeat", self.exp_node, "until", self.block_node
+    def descendants(self):
+        return iter((self.block_node, self.exp_node))
+
+    def parse_tree_descendants(self):
+        return iter((self.block_node, "until", self.exp_node, "repeat"))
 
 
 class ForLoopNode(AstNode):
-    FIRST_CONTENTS = {"for"}
+    FIRST_CONTENTS: NodeFirst = {"for"}
 
-    ERROR_NAME = "for loop"
+    ERROR_NAME: str = "for loop"
 
     __slots__ = (
         "name_node",
@@ -206,31 +222,34 @@ class ForLoopNode(AstNode):
         return cls(name_node, assign_exp_node, cond_exp_node, iter_exp_node, block_node)
 
     @classmethod
-    def presented_in_stream(cls, stream: BufferedTokenStream, index: int = 0) -> bool:
+    def presented_in_stream(cls, stream: BufferedTokenStream, index: int = 0):
         return (
             stream.peek(index + 2).content == "="
             and stream.peek(index).content in cls.FIRST_CONTENTS
         )
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return (
-            "for",
-            self.name_node,
-            "=",
-            self.assign_exp_node,
-            ",",
-            self.cond_exp_node,
-            *((",", self.iter_exp_node) if self.iter_exp_node is not None else ()),
-            "do",
-            self.block_node,
-            "end",
+    def descendants(self):
+        return iter(
+            (
+                self.block_node,
+                *(() if self.iter_exp_node is None else (self.iter_exp_node,)),
+                self.assign_exp_node,
+                self.name_node,
+            )
+        )
+
+    def parse_tree_descendants(self):
+        return chain(
+            ("end", self.block_node, "do"),
+            () if self.iter_exp_node is None else (self.iter_exp_node, ","),
+            (",", self.assign_exp_node, "=", self.name_node, "for"),
         )
 
 
 class ForIterLoopNode(AstNode):
-    FIRST_CONTENTS = {"for"}
+    FIRST_CONTENTS: NodeFirst = {"for"}
 
-    ERROR_NAME = "iterator loop"
+    ERROR_NAME: str = "iterator loop"
 
     __slots__ = "name_node_list", "exp_node_list", "block_node"
 
@@ -270,30 +289,35 @@ class ForIterLoopNode(AstNode):
         return cls(name_node_list, exp_node_list, block_node)
 
     @classmethod
-    def presented_in_stream(cls, stream: BufferedTokenStream, index: int = 0) -> bool:
+    def presented_in_stream(cls, stream: BufferedTokenStream, index: int = 0):
         return (
             stream.peek(index + 2).content in {",", "in"}
             and stream.peek(index).content in cls.FIRST_CONTENTS
         )
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return (
-            "for",
-            *iter_sep(self.name_node_list),
-            "in",
-            *iter_sep(self.exp_node_list),
-            "do",
-            self.block_node,
-            "end",
+    def descendants(self):
+        return chain(
+            (self.block_node,),
+            reversed(self.exp_node_list),
+            reversed(self.name_node_list),
+        )
+
+    def parse_tree_descendants(self):
+        return chain(
+            ("end", self.block_node, "do"),
+            iter_sep(reversed(self.exp_node_list)),
+            ("in",),
+            iter_sep(reversed(self.name_node_list)),
+            ("for",),
         )
 
 
-# =============================  assign nodes ============================
+# =============================  assign nodes =================================
 
 
 @starts_with(data_nodes.VarNode)
 class VarsAssignNode(AstNode):
-    ERROR_NAME = "variable assigment"
+    ERROR_NAME: str = "variable assigment"
 
     __slots__ = "var_node_list", "exp_node_list"
 
@@ -324,17 +348,24 @@ class VarsAssignNode(AstNode):
         return cls(var_node_list, exp_node_list)
 
     @classmethod
-    def presented_in_stream(cls, stream: BufferedTokenStream, index: int = 0) -> bool:
+    def presented_in_stream(cls, stream: BufferedTokenStream, index: int = 0):
         return data_nodes.VarNode.presented_in_stream(stream, index)
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return *iter_sep(self.var_node_list), "=", *iter_sep(self.exp_node_list)
+    def descendants(self):
+        return chain(reversed(self.exp_node_list), reversed(self.var_node_list))
+
+    def parse_tree_descendants(self):
+        return chain(
+            iter_sep(reversed(self.exp_node_list)),
+            ("=",),
+            iter_sep(reversed(self.var_node_list)),
+        )
 
 
 class LocalVarsAssignNode(AstNode):
-    FIRST_CONTENTS = {"local"}
+    FIRST_CONTENTS: NodeFirst = {"local"}
 
-    ERROR_NAME = "local variable assigment"
+    ERROR_NAME: str = "local variable assigment"
 
     __slots__ = "name_node_list", "exp_node_list"
 
@@ -374,18 +405,21 @@ class LocalVarsAssignNode(AstNode):
         return cls(name_node_list, exp_node_list)
 
     @classmethod
-    def presented_in_stream(cls, stream: BufferedTokenStream, index: int = 0) -> bool:
+    def presented_in_stream(cls, stream: BufferedTokenStream, index: int = 0):
         return (
             data_nodes.NameNode.presented_in_stream(stream, index + 1)
             and stream.peek(index).content in cls.FIRST_CONTENTS
         )
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return (
-            "local",
-            *iter_sep(self.name_node_list),
-            "=",
-            *iter_sep(self.exp_node_list),
+    def descendants(self):
+        return chain(reversed(self.exp_node_list), reversed(self.name_node_list))
+
+    def parse_tree_descendants(self):
+        return chain(
+            iter_sep(reversed(self.exp_node_list)),
+            ("=",),
+            iter_sep(reversed(self.name_node_list)),
+            ("local",),
         )
 
 
@@ -393,9 +427,9 @@ import lua.ast_nodes.nodes.function_nodes as function_nodes
 
 
 class FuncAssignNode(AstNode):
-    FIRST_CONTENTS = {"function"}
+    FIRST_CONTENTS: NodeFirst = {"function"}
 
-    ERROR_NAME = "function declaration"
+    ERROR_NAME: str = "function declaration"
 
     __slots__ = "funcname_node", "funcbody_node"
 
@@ -416,14 +450,17 @@ class FuncAssignNode(AstNode):
         )
         return cls(funcname_node, funcbody_node)
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return "function", self.funcname_node, self.funcbody_node
+    def descendants(self):
+        return iter((self.funcbody_node, self.funcname_node))
+
+    def parse_tree_descendants(self):
+        return iter((self.funcbody_node, self.funcname_node, "function"))
 
 
 class LocalFuncAssignNode(AstNode):
-    FIRST_CONTENTS = {"local"}
+    FIRST_CONTENTS: NodeFirst = {"local"}
 
-    ERROR_NAME = "local function declaration"
+    ERROR_NAME: str = "local function declaration"
 
     __slots__ = "name_node", "funcbody_node"
 
@@ -444,23 +481,26 @@ class LocalFuncAssignNode(AstNode):
         return cls(name_node, funcbody_node)
 
     @classmethod
-    def presented_in_stream(cls, stream: BufferedTokenStream, index: int = 0) -> bool:
+    def presented_in_stream(cls, stream: BufferedTokenStream, index: int = 0):
         return (
             stream.peek(index + 1).content == "function"
             and stream.peek(index).content in cls.FIRST_CONTENTS
         )
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return "local", self.name_node, self.funcbody_node
+    def descendants(self):
+        return iter((self.funcbody_node, self.name_node))
+
+    def parse_tree_descendants(self):
+        return iter((self.funcbody_node, self.name_node, "function", "local"))
 
 
-# =============================  branch nodes ============================
+# =============================  branch nodes =================================
 
 
 class ElseIfNode(AstNode):
-    FIRST_CONTENTS = {"elseif"}
+    FIRST_CONTENTS: NodeFirst = {"elseif"}
 
-    ERROR_NAME = "elseif statement"
+    ERROR_NAME: str = "elseif statement"
 
     __slots__ = "exp_node", "block_node"
 
@@ -469,7 +509,7 @@ class ElseIfNode(AstNode):
         self.block_node = block_node
 
     @classmethod
-    def from_tokens(cls, stream: BufferedTokenStream, parent: AstNode | None = None):
+    def from_tokens(cls, stream: BufferedTokenStream):
         exp_node, block_node = parse_simple_rule(
             stream,
             (data_nodes.ExpNode, "then", BlockNode),
@@ -478,14 +518,17 @@ class ElseIfNode(AstNode):
 
         return cls(exp_node, block_node)
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return "elseif", self.exp_node, "then", self.block_node
+    def descendants(self):
+        return iter((self.block_node, self.exp_node))
+
+    def parse_tree_descendants(self):
+        return iter((self.block_node, "then", self.exp_node, "elseif"))
 
 
 class ElseNode(AstNode):
-    FIRST_CONTENTS = {"else"}
+    FIRST_CONTENTS: NodeFirst = {"else"}
 
-    ERROR_NAME = "else statement"
+    ERROR_NAME: str = "else statement"
 
     __slots__ = ("block_node",)
 
@@ -493,17 +536,20 @@ class ElseNode(AstNode):
         self.block_node = block_node
 
     @classmethod
-    def from_tokens(cls, stream: BufferedTokenStream, parent: AstNode | None = None):
+    def from_tokens(cls, stream: BufferedTokenStream):
         return cls(parse_node(stream, BlockNode, next(stream).content))
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return "else", self.block_node
+    def descendants(self):
+        return iter((self.block_node,))
+
+    def parse_tree_descendants(self):
+        return iter((self.block_node, "else"))
 
 
 class IfNode(AstNode):
-    FIRST_CONTENTS = {"if"}
+    FIRST_CONTENTS: NodeFirst = {"if"}
 
-    ERROR_NAME = "if statement"
+    ERROR_NAME: str = "if statement"
 
     __slots__ = "exp_node", "block_node", "elseif_node_list", "else_node"
 
@@ -547,36 +593,39 @@ class IfNode(AstNode):
 
         return cls(exp_node, block_node, elseif_node_list, else_node)
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return (
-            "if",
-            self.exp_node,
-            "then",
-            self.block_node,
-            *self.elseif_node_list,
-            *((self.else_node,) if self.else_node is not None else ()),
-            "end",
+    def descendants(self):
+        return chain(
+            () if self.else_node is None else (self.else_node,),
+            reversed(self.elseif_node_list),
+            (self.block_node, self.exp_node),
+        )
+
+    def parse_tree_descendants(self):
+        return chain(
+            ("end", *(() if self.else_node is None else (self.else_node,))),
+            self.elseif_node_list,
+            (self.block_node, "then", self.exp_node, "if"),
         )
 
 
-# ============================= other nodes ============================
+# ==============================  other nodes =================================
 
 
 class EmptyNode(AstNode):
-    FIRST_CONTENTS = {";"}
+    FIRST_CONTENTS: NodeFirst = {";"}
 
-    ERROR_NAME = "';' statement"
+    ERROR_NAME: str = "';' statement"
 
     __slots__ = ()
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return (";",)
+    def parse_tree_descendants(self):
+        return iter((";",))
 
 
 class RetNode(AstNode):
-    FIRST_CONTENTS = {"return"}
+    FIRST_CONTENTS: NodeFirst = {"return"}
 
-    ERROR_NAME = "return statement"
+    ERROR_NAME: str = "return statement"
 
     __slots__ = ("exp_node_list",)
 
@@ -597,8 +646,11 @@ class RetNode(AstNode):
 
         return cls(exp_node_list)
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return "return", *iter_sep(self.exp_node_list)
+    def descendants(self):
+        return reversed(self.exp_node_list)
+
+    def parse_tree_descendants(self):
+        return chain(iter_sep(reversed(self.exp_node_list)), ("return",))
 
 
 class BlockNode(AstNode):
@@ -621,8 +673,8 @@ class BlockNode(AstNode):
         RetNode,
     )
 
-    FIRST_CONTENTS = _D_T_STATEMENTS.contents.keys()
-    FIRST_NAMES = _D_T_STATEMENTS.names.keys()
+    FIRST_CONTENTS: NodeFirst = _D_T_STATEMENTS.contents.keys()
+    FIRST_NAMES: NodeFirst = _D_T_STATEMENTS.names.keys()
 
     # RetNode if it exists should be the last element of statement list
 
@@ -633,7 +685,7 @@ class BlockNode(AstNode):
 
     @classmethod
     def from_tokens(cls, stream: BufferedTokenStream):
-        statement_node_list = []
+        statement_node_list: list[AstNode] = []
 
         while True:
             match cls._D_T_STATEMENTS[stream.peek()]:
@@ -659,5 +711,8 @@ class BlockNode(AstNode):
 
         return cls(statement_node_list)
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return self.statement_node_list
+    def descendants(self):
+        return reversed(self.statement_node_list)
+
+    def parse_tree_descendants(self):
+        return reversed(self.statement_node_list)

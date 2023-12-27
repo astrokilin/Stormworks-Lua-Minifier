@@ -6,6 +6,7 @@ if __name__ == "__main__":
     with open(sys.argv[1], "r") as file:
         try:
             ast = LuaAst(file)
+            # ast.show()
             ast.text()
 
         except WrongTokenError as e:

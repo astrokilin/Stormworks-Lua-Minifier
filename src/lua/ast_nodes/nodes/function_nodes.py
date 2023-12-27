@@ -1,8 +1,9 @@
 from __future__ import annotations
-from collections.abc import Sequence
+from collections.abc import Iterator
+from itertools import chain
 
 from lua.lexer import BufferedTokenStream
-from lua.ast_nodes.base_nodes import AstNode, starts_with
+from lua.ast_nodes.base_nodes import AstNode, NodeFirst, AstNodeType, starts_with
 from lua.parsing_routines import (
     TokenDispatchTable,
     parse_node_list,
@@ -16,7 +17,9 @@ import lua.ast_nodes.nodes.statement_nodes as statement_nodes
 
 
 class FuncBodyNode(AstNode):
-    FIRST_CONTENTS = {"("}
+    FIRST_CONTENTS: NodeFirst = {"("}
+
+    ERROR_NAME: str = "function body"
 
     __slots__ = "args_node_list", "block_node"
 
@@ -61,13 +64,20 @@ class FuncBodyNode(AstNode):
 
         return cls(args_node_list, block_node)
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return "(", *iter_sep(self.args_node_list), ")", self.block_node, "end"
+    def descendants(self):
+        return chain(reversed(self.args_node_list), (self.block_node,))
+
+    def parse_tree_descendants(self):
+        return chain(
+            ("end", self.block_node, ")"),
+            iter_sep(reversed(self.args_node_list)),
+            ("(",),
+        )
 
 
 @starts_with(data_nodes.NameNode)
 class FuncNameNode(AstNode):
-    ERROR_NAME = "function name"
+    ERROR_NAME: str = "function name"
 
     __slots__ = "name_node_list", "method_name_node"
 
@@ -93,8 +103,16 @@ class FuncNameNode(AstNode):
 
         return cls(name_node_list, method_name_node)
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
+    def descendants(self):
         if self.method_name_node is None:
-            return (*iter_sep(self.name_node_list, "."),)
+            return reversed(self.name_node_list)
 
-        return *iter_sep(self.name_node_list, "."), ":", self.method_name_node
+        return chain((method_name_node,), reversed(self.name_node_list))
+
+    def parse_tree_descendants(self):
+        if self.method_name_node is None:
+            return iter_sep(reversed(self.name_node_list), ".")
+
+        return chain(
+            (self.method_name_node, ":"), iter_sep(reversed(self.name_node_list), ".")
+        )

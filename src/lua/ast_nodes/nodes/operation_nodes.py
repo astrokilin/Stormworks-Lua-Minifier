@@ -1,7 +1,13 @@
 from __future__ import annotations
-from collections.abc import Generator, Sequence
+from collections.abc import Iterator
 
-from lua.ast_nodes.base_nodes import AstNode, DataNode, OperationNode
+from lua.ast_nodes.base_nodes import (
+    AstNode,
+    AstNodeType,
+    NodeFirst,
+    DataNode,
+    OperationNode,
+)
 from lua.parsing_routines import TokenDispatchTable
 
 
@@ -30,9 +36,9 @@ class BinOpNode(OperationNode):
         "^": 11,
     }
 
-    FIRST_CONTENTS = _OPERATION_PRECEDENCE.keys()
+    FIRST_CONTENTS: NodeFirst = _OPERATION_PRECEDENCE.keys()
 
-    ERROR_NAME = "binary operation"
+    ERROR_NAME: str = "binary operation"
 
     __slots__ = "left_operand_node", "right_operand_node"
 
@@ -46,17 +52,20 @@ class BinOpNode(OperationNode):
         self.left_operand_node = left_operand_node
         self.right_operand_node = right_operand_node
 
+    def descendants(self):
+        return iter((self.right_operand_node, self.left_operand_node))  # type: ignore
+
     # ExpNode parsing algorithm will always fill left, right operands so we dont listen mypy here
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return self.left_operand_node, self.opcode, self.right_operand_node  # type: ignore
+    def parse_tree_descendants(self):
+        return iter((self.right_operand_node, self.opcode, self.left_operand_node))  # type: ignore
 
 
 class UnOpNode(OperationNode):
     _OPERATION_PRECEDENCE = {"-": 10, "not": 10, "#": 10, "~": 10}
 
-    FIRST_CONTENTS = _OPERATION_PRECEDENCE.keys()
+    FIRST_CONTENTS: NodeFirst = _OPERATION_PRECEDENCE.keys()
 
-    ERROR_NAME = "unary operation"
+    ERROR_NAME: str = "unary operation"
 
     __slots__ = ("right_operand_node",)
 
@@ -64,5 +73,8 @@ class UnOpNode(OperationNode):
         super().__init__(**kwargs)
         self.right_operand_node = right_operand_node
 
-    def get_parse_tree_descendants(self) -> Sequence[AstNode | str]:
-        return self.opcode, self.right_operand_node  # type: ignore
+    def descendants(self):
+        return iter((self.right_operand_node,))  # type: ignore
+
+    def parse_tree_descendants(self):
+        return iter((self.right_operand_node, self.opcode))  # type: ignore
