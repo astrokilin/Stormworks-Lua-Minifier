@@ -415,12 +415,15 @@ class LocalVarsAssignNode(AstNode):
         return chain(reversed(self.exp_node_list), reversed(self.name_node_list))
 
     def parse_tree_descendants(self):
-        return chain(
-            iter_sep(reversed(self.exp_node_list)),
-            ("=",),
-            iter_sep(reversed(self.name_node_list)),
-            ("local",),
-        )
+        if self.exp_node_list:
+            return chain(
+                iter_sep(reversed(self.exp_node_list)),
+                ("=",),
+                iter_sep(reversed(self.name_node_list)),
+                ("local",),
+            )
+
+        return chain(iter_sep(reversed(self.name_node_list)), ("local",))
 
 
 import lua.ast_nodes.nodes.function_nodes as function_nodes
