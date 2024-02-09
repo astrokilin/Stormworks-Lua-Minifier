@@ -8,7 +8,6 @@ from lua.ast_nodes.base_nodes import (
     AstNode,
     DataNode,
     OperationNode,
-    starts_with,
     AstNodeType,
     NodeFirst,
 )
@@ -20,7 +19,7 @@ from lua.parsing_routines import (
     parse_terminal,
     parse_node,
 )
-from lua.runtime_routines import iter_sep
+from lua.runtime_routines import iter_sep, starts_with
 
 
 class NameNode(DataNode):

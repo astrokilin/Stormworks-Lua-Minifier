@@ -1,5 +1,5 @@
 from __future__ import annotations
-from collections.abc import Generator, Callable, KeysView, Iterator
+from collections.abc import Generator, KeysView, Iterator
 from enum import Enum, auto
 from typing import TextIO, TypeVar
 from itertools import repeat
@@ -129,25 +129,3 @@ class OperationNode(DataNode):
 
     def is_right_assoc(self) -> bool:
         return self.opcode in self._RIGHT_ASSOC_OPERATIONS
-
-
-def starts_with(
-    *starting_nonterms: type[AstNode],
-) -> Callable[[type[AstNodeType]], type[AstNodeType]]:
-    def decorate(orig_class: type[AstNodeType]):
-        for nonterm_class in starting_nonterms:
-            # I guess sometimes we can just link
-            # to a existing set without creating a copy
-            if not orig_class.FIRST_CONTENTS:
-                orig_class.FIRST_CONTENTS = nonterm_class.FIRST_CONTENTS
-            elif nonterm_class.FIRST_CONTENTS:
-                orig_class.FIRST_CONTENTS |= nonterm_class.FIRST_CONTENTS
-
-            if not orig_class.FIRST_NAMES:
-                orig_class.FIRST_NAMES = nonterm_class.FIRST_NAMES
-            elif nonterm_class.FIRST_NAMES:
-                orig_class.FIRST_NAMES |= nonterm_class.FIRST_NAMES
-
-        return orig_class
-
-    return decorate

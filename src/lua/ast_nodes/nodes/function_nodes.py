@@ -3,14 +3,14 @@ from collections.abc import Iterator
 from itertools import chain
 
 from lua.lexer import BufferedTokenStream
-from lua.ast_nodes.base_nodes import AstNode, NodeFirst, AstNodeType, starts_with
+from lua.ast_nodes.base_nodes import AstNode, NodeFirst, AstNodeType
 from lua.parsing_routines import (
     TokenDispatchTable,
     parse_node_list,
     parse_simple_rule,
     parse_node,
 )
-from lua.runtime_routines import iter_sep
+from lua.runtime_routines import iter_sep, starts_with
 
 import lua.ast_nodes.nodes.data_nodes as data_nodes
 import lua.ast_nodes.nodes.statement_nodes as statement_nodes
