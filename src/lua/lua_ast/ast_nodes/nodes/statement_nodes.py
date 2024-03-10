@@ -2,19 +2,19 @@ from __future__ import annotations
 from collections.abc import Iterator
 from itertools import chain
 
-from lua.lexer import BufferedTokenStream
-from lua.ast_nodes.base_nodes import AstNode, NodeFirst
-from lua.parsing_routines import (
+from lua.lua_ast.lexer import BufferedTokenStream
+from lua.lua_ast.parsing_routines import (
     TokenDispatchTable,
     parse_node_list,
     parse_simple_rule,
     parse_terminal,
     parse_node,
 )
-from lua.runtime_routines import iter_sep, starts_with
+from lua.lua_ast.runtime_routines import iter_sep, starts_with
+from lua.lua_ast.ast_nodes.base_nodes import AstNode, NodeFirst
 
-import lua.ast_nodes.nodes.data_nodes as data_nodes
-import lua.ast_nodes.nodes.extractor_nodes as extractor_nodes
+import lua.lua_ast.ast_nodes.nodes.data_nodes as data_nodes
+import lua.lua_ast.ast_nodes.nodes.extractor_nodes as extractor_nodes
 
 
 class FuncCallNode(data_nodes.PrefExpNode):
@@ -61,13 +61,28 @@ class LabelNode(AstNode):
         return iter(("::", self.name_node, "::"))
 
 
+# for this two dudes we need to know their positions in orig file
+# since they could be the cause why control flow analysis is impossible
+
+
 class BreakNode(AstNode):
     FIRST_CONTENTS: NodeFirst = {"break"}
 
-    __slots__ = ()
+    __slots__ = ("__file_offset",)
+
+    def __init__(self, file_offset: int):
+        self.__file_offset = file_offset
+
+    @classmethod
+    def from_tokens(cls, stream: BufferedTokenStream):
+        return cls(next(stream).pos)
 
     def parse_tree_descendants(self):
         return iter(("break",))
+
+    @property
+    def file_offset(self) -> int:
+        return self.__file_offset
 
 
 class GotoNode(AstNode):
@@ -75,20 +90,26 @@ class GotoNode(AstNode):
 
     ERROR_NAME: str = "goto statement"
 
-    __slots__ = ("name_node",)
+    __slots__ = ("name_node", "__file_offset")
 
-    def __init__(self, name_node: data_nodes.NameNode):
+    def __init__(self, name_node: data_nodes.NameNode, file_offset: int):
         self.name_node = name_node
+        self.__file_offset = file_offset
 
     @classmethod
     def from_tokens(cls, stream: BufferedTokenStream):
-        return cls(parse_node(stream, data_nodes.NameNode, next(stream).content))
+        goto_t = next(stream)
+        return cls(parse_node(stream, data_nodes.NameNode, goto_t.content), goto_t.pos)
 
     def descendants(self):
         return iter((self.name_node,))
 
     def parse_tree_descendants(self):
         return iter(self.name_node, "goto")
+
+    @property
+    def file_offset(self) -> int:
+        return self.__file_offset
 
 
 class DoBlockNode(AstNode):
@@ -233,6 +254,7 @@ class ForLoopNode(AstNode):
             (
                 self.block_node,
                 *(() if self.iter_exp_node is None else (self.iter_exp_node,)),
+                self.cond_exp_node,
                 self.assign_exp_node,
                 self.name_node,
             )
@@ -242,7 +264,7 @@ class ForLoopNode(AstNode):
         return chain(
             ("end", self.block_node, "do"),
             () if self.iter_exp_node is None else (self.iter_exp_node, ","),
-            (",", self.assign_exp_node, "=", self.name_node, "for"),
+            (self.cond_exp_node, ",", self.assign_exp_node, "=", self.name_node, "for"),
         )
 
 
@@ -426,7 +448,7 @@ class LocalVarsAssignNode(AstNode):
         return chain(iter_sep(reversed(self.name_node_list)), ("local",))
 
 
-import lua.ast_nodes.nodes.function_nodes as function_nodes
+import lua.lua_ast.ast_nodes.nodes.function_nodes as function_nodes
 
 
 class FuncAssignNode(AstNode):
@@ -676,8 +698,10 @@ class BlockNode(AstNode):
         RetNode,
     )
 
-    FIRST_CONTENTS: NodeFirst = _D_T_STATEMENTS.contents.keys()
-    FIRST_NAMES: NodeFirst = _D_T_STATEMENTS.names.keys()
+    # since presented_in_stream() is always true we dont need this guys
+
+    # FIRST_CONTENTS: NodeFirst = _D_T_STATEMENTS.contents.keys()
+    # FIRST_NAMES: NodeFirst = _D_T_STATEMENTS.names.keys()
 
     # RetNode if it exists should be the last element of statement list
 
@@ -713,6 +737,13 @@ class BlockNode(AstNode):
                     statement_node_list.append(AstNode.from_tokens(stream))
 
         return cls(statement_node_list)
+
+    # since block can be empty we assume that
+    # it can be always extracted from stream
+
+    @classmethod
+    def presented_in_stream(cls, stream: BufferedTokenStream, index: int = 0):
+        return True
 
     def descendants(self):
         return reversed(self.statement_node_list)

@@ -2,16 +2,16 @@ from __future__ import annotations
 from collections.abc import Iterator
 from itertools import chain
 
-from lua.lexer import BufferedTokenStream
-from lua.exceptions import WrongTokenError
-from lua.ast_nodes.base_nodes import (
+from lua.lua_ast.lexer import BufferedTokenStream
+from lua.lua_ast.exceptions import WrongTokenError
+from lua.lua_ast.ast_nodes.base_nodes import (
     AstNode,
     DataNode,
     OperationNode,
     AstNodeType,
     NodeFirst,
 )
-from lua.parsing_routines import (
+from lua.lua_ast.parsing_routines import (
     skip_parenthesis,
     TokenDispatchTable,
     parse_node_list,
@@ -19,7 +19,7 @@ from lua.parsing_routines import (
     parse_terminal,
     parse_node,
 )
-from lua.runtime_routines import iter_sep, starts_with
+from lua.lua_ast.runtime_routines import iter_sep, starts_with
 
 
 class NameNode(DataNode):
@@ -60,7 +60,8 @@ class VarargNode(DataNode):
     def parse_tree_descendants(self):
         return iter(("...",))
 
-    def get_type(self):
+    @property
+    def data_type(self):
         return DataNode.DataTypes.VARARG
 
 
@@ -82,11 +83,11 @@ class ConstNode(DataNode):
 
     ERROR_NAME: str = "consant variable"
 
-    __slots__ = "value", "d_type"
+    __slots__ = "value", "__d_type"
 
-    def __init__(self, value: str, d_type: DataNode.DataTypes):
+    def __init__(self, value: str, data_type: DataNode.DataTypes):
         self.value = value
-        self.d_type = d_type
+        self.__d_type = data_type
 
     @classmethod
     def from_tokens(cls, stream: BufferedTokenStream):
@@ -107,8 +108,9 @@ class ConstNode(DataNode):
     def __repr__(self):
         return super().__repr__() + f" value: {self.value}"
 
-    def get_type(self):
-        return self.d_type
+    @property
+    def data_type(self):
+        return self.__d_type
 
 
 class TableConstrNode(DataNode):
@@ -149,11 +151,12 @@ class TableConstrNode(DataNode):
     def parse_tree_descendants(self):
         return chain(("}",), iter_sep(reversed(self.field_node_list)), ("{",))
 
-    def get_type(self):
+    @property
+    def data_type(self):
         return DataNode.DataTypes.TABLE
 
 
-import lua.ast_nodes.nodes.extractor_nodes as extractor_nodes
+import lua.lua_ast.ast_nodes.nodes.extractor_nodes as extractor_nodes
 
 
 @starts_with(NameNode)
@@ -264,7 +267,7 @@ class VarNode(PrefExpNode):
             return NameNode.presented_in_stream(stream, index)
 
 
-import lua.ast_nodes.nodes.function_nodes as function_nodes
+import lua.lua_ast.ast_nodes.nodes.function_nodes as function_nodes
 
 
 class FuncDefNode(DataNode):
@@ -286,7 +289,8 @@ class FuncDefNode(DataNode):
             parse_node(stream, function_nodes.FuncBodyNode, next(stream).content)
         )
 
-    def get_type(self):
+    @property
+    def data_type(self):
         return DataNode.DataTypes.FUNCTION
 
     def descendants(self):
@@ -295,13 +299,13 @@ class FuncDefNode(DataNode):
     def parse_tree_descendants(self):
         return iter(
             (
-                "function",
                 self.funcbody_node,
+                "function",
             )
         )
 
 
-import lua.ast_nodes.nodes.operation_nodes as operation_nodes
+import lua.lua_ast.ast_nodes.nodes.operation_nodes as operation_nodes
 
 
 @starts_with(
@@ -331,9 +335,9 @@ class ExpNode(DataNode):
             exp_stack: list,
         ):
             while len(exp_stack) > 1 and (
-                exp_stack[-2].get_precedence() > top_precedence
-                or exp_stack[-2].get_precedence() == top_precedence
-                and exp_stack[-2].is_right_assoc()
+                exp_stack[-2].precedence > top_precedence
+                or exp_stack[-2].precedence == top_precedence
+                and exp_stack[-2].right_associativity
             ):
                 d_2 = exp_stack.pop()
                 op = exp_stack.pop()
@@ -352,13 +356,14 @@ class ExpNode(DataNode):
                 exp_stack.append(operation_nodes.UnOpNode.from_tokens(stream))
 
             if (operand_type := cls._D_T_OPERAND[stream.peek()]) is None:
-                raise WrongTokenError(next(stream), stream, "operand")
+                t = next(stream)
+                raise WrongTokenError(t.content, t.pos, "operand")
 
             exp_stack.append(operand_type.from_tokens(stream))
 
             if operation_nodes.BinOpNode.presented_in_stream(stream):
                 next_op = operation_nodes.BinOpNode.from_tokens(stream)
-                traverse_stack(next_op.get_precedence(), exp_stack)
+                traverse_stack(next_op.precedence, exp_stack)
                 exp_stack.append(next_op)
 
             else:

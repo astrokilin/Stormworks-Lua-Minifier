@@ -4,7 +4,7 @@ from enum import Enum, auto
 from typing import TextIO, TypeVar
 from itertools import repeat
 
-from lua.lexer import BufferedTokenStream
+from lua.lua_ast.lexer import BufferedTokenStream
 
 NodeFirst = set[str] | KeysView[str]
 
@@ -98,11 +98,12 @@ class DataNode(AstNode):
     # runtime depend types means that
     # value and type should be obtained from the runtime
 
-    def get_type(self) -> DataNode.DataTypes:
+    @property
+    def data_type(self) -> DataNode.DataTypes:
         return DataNode.DataTypes.RUNTIME_DEPEND
 
     def __repr__(self):
-        return super().__repr__() + f" datatype: {self.get_type()}"
+        return super().__repr__() + f" datatype: {self.data_type}"
 
 
 # Descendants of this node represents operations
@@ -124,8 +125,10 @@ class OperationNode(DataNode):
     def __repr__(self):
         return super().__repr__() + f" opcode: {self.opcode}"
 
-    def get_precedence(self) -> int:
+    @property
+    def precedence(self) -> int:
         return self._OPERATION_PRECEDENCE[self.opcode]
 
-    def is_right_assoc(self) -> bool:
+    @property
+    def right_associativity(self) -> bool:
         return self.opcode in self._RIGHT_ASSOC_OPERATIONS

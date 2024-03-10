@@ -1,7 +1,7 @@
 from collections.abc import Iterator, Callable
 from typing import Any
 
-from lua.ast_nodes.base_nodes import AstNode, AstNodeType
+from lua.lua_ast.ast_nodes.base_nodes import AstNode, AstNodeType
 
 
 def iter_sep(seq: Iterator[Any], sep: Any = ","):

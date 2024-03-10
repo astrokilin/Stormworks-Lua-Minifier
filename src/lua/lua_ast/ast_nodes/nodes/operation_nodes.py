@@ -1,14 +1,14 @@
 from __future__ import annotations
 from collections.abc import Iterator
 
-from lua.ast_nodes.base_nodes import (
+from lua.lua_ast.parsing_routines import TokenDispatchTable
+from lua.lua_ast.ast_nodes.base_nodes import (
     AstNode,
     AstNodeType,
     NodeFirst,
     DataNode,
     OperationNode,
 )
-from lua.parsing_routines import TokenDispatchTable
 
 
 class BinOpNode(OperationNode):

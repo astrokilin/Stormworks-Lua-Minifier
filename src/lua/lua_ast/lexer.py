@@ -1,8 +1,9 @@
 import re
 from dataclasses import dataclass
-from typing import TextIO
 from collections import deque
 from collections.abc import Iterator
+
+from lua.lua_ast.exceptions import UnexpectedSymbolError
 
 
 @dataclass(eq=True, frozen=True)
@@ -20,24 +21,23 @@ class TokenPattern:
 
 
 class BufferedTokenStream:
-    def __init__(self, txt_file: TextIO, pattern: str, ignore_table: dict[str, bool]):
-        self._content = txt_file.read()
-        self._iter = re.finditer(pattern, self._content)
-        self._table = ignore_table
+    def __init__(self, txt: str, pattern: str, skip_table: dict[str, bool]):
+        self.__content = txt
+        self.__iter = re.finditer(pattern, self.__content)
+        self.__skip_table = skip_table
         self.__buffer: deque = deque()
 
     def __get_token(self) -> Token:
-        match = next(self._iter)
-        matched_target = ""
-        for target_name in self._table:
-            if match.group(target_name) is not None:
-                matched_target = target_name
-                break
+        while True:
+            match = next(self.__iter)
 
-        if self._table[matched_target]:
-            return self.__get_token()
+            if (matched_target := match.lastgroup) is None:
+                raise UnexpectedSymbolError(match.group(0), match.span()[0])
 
-        return Token(matched_target, match.group(matched_target), match.span()[0])
+            if self.__skip_table[matched_target]:
+                continue
+
+            return Token(matched_target, match.group(matched_target), match.span()[0])
 
     def __iter__(self):
         return self
@@ -57,27 +57,17 @@ class BufferedTokenStream:
 
         return self.__buffer[k]
 
-    # ((line_number, line_offset), full string containing the error)
-    def find_token(self, t: Token) -> tuple[tuple[int, int], str]:
-        line_num = self._content.count("\n", 0, t.pos) + 1
-        return (
-            (
-                line_num,
-                t.pos - self._content[: t.pos].rfind("\n"),
-            ),
-            self._content.split("\n")[line_num - 1],
-        )
-
 
 class LuaLexer:
     LUA_TOKEN_PATTERNS = (
-        TokenPattern("comment", r"(?:--\[\[[\s\S]*--\]\])|--[^\n]*", ignore=True),
+        TokenPattern("delimeter", r"[\s\n\r]+", ignore=True),
+        TokenPattern("comment", r"--\[(=*)\[[\s\S]*--\]\1\]|--[^\n]*", ignore=True),
         TokenPattern(
             "keyword",
             r"(?:false|local|then|break|for|nil|true|do|function|until|else|goto|while|elseif|if|repeat|end|in|return)\b",
         ),
         TokenPattern("other", r"\.{3}|::|:|\."),
-        TokenPattern("op", r"not|and|or|<<|>>|//|==|~=|<=|>=|\.{2}|[+\-*%\^#&|<>=/]"),
+        TokenPattern("op", r"not|and|or|<<|>>|//|==|~=|<=|>=|\.{2}|[+\-*%\^#&|<>=/~]"),
         TokenPattern(
             "string",
             r'"(?:[^"\\\n]|' +
@@ -94,26 +84,25 @@ class LuaLexer:
             "numeral",
             r"-?(?:" +
             # hex num regex
-            r"0[xX][a-fA-F0-9]+(?:.[a-fA-F0-9]+)?(?:[pPeE][+-]?[a-fA-F0-9]+)?"
+            r"0[xX][a-fA-F0-9]+(?:\.[a-fA-F0-9]+)?(?:[pPeE][+-]?[a-fA-F0-9]+)?"
             + ")|(?:"
             +
             # dec num regex
-            r"[0-9]+(?:.[0-9]+)?(?:[pPeE][+-]?[0-9]+)?" + ")",
+            r"[0-9]+(?:\.[0-9]+)?(?:[pPeE][+-]?[0-9]+)?" + ")",
         ),
-        TokenPattern("id", r"[\w_][\w_\d]*"),
+        TokenPattern("id", r"[A-Za-z_]\w*"),
         TokenPattern("EOF", r"\Z"),
     )
 
     def __init__(self):
-        self.__final_pattern = "".join(
-            [f"(?P<{t.name}>{t.pattern})|" for t in self.LUA_TOKEN_PATTERNS]
-        ).strip("|")
-        self.__target_names_ignore = {t.name: t.ignore for t in self.LUA_TOKEN_PATTERNS}
-
-    def create_buffered_stream(self, txt_file: TextIO) -> BufferedTokenStream:
-        return BufferedTokenStream(
-            txt_file, self.__final_pattern, self.__target_names_ignore
+        self.__final_pattern = (
+            "|".join([f"(?P<{t.name}>{t.pattern})" for t in self.LUA_TOKEN_PATTERNS])
+            + r"|."
         )
+        self.__skip_names = {t.name: t.ignore for t in self.LUA_TOKEN_PATTERNS}
+
+    def create_buffered_stream(self, txt: str) -> BufferedTokenStream:
+        return BufferedTokenStream(txt, self.__final_pattern, self.__skip_names)
 
     @staticmethod
     def concat(term_iter: Iterator[str]) -> Iterator[str]:

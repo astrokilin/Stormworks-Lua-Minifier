@@ -2,18 +2,18 @@ from __future__ import annotations
 from collections.abc import Iterator
 from itertools import chain
 
-from lua.lexer import BufferedTokenStream
-from lua.ast_nodes.base_nodes import AstNode, NodeFirst, AstNodeType
-from lua.parsing_routines import (
+from lua.lua_ast.lexer import BufferedTokenStream
+from lua.lua_ast.parsing_routines import (
     TokenDispatchTable,
     parse_node_list,
     parse_simple_rule,
     parse_node,
 )
-from lua.runtime_routines import iter_sep, starts_with
+from lua.lua_ast.runtime_routines import iter_sep, starts_with
+from lua.lua_ast.ast_nodes.base_nodes import AstNode, NodeFirst, AstNodeType
 
-import lua.ast_nodes.nodes.data_nodes as data_nodes
-import lua.ast_nodes.nodes.statement_nodes as statement_nodes
+import lua.lua_ast.ast_nodes.nodes.data_nodes as data_nodes
+import lua.lua_ast.ast_nodes.nodes.statement_nodes as statement_nodes
 
 
 class FuncBodyNode(AstNode):

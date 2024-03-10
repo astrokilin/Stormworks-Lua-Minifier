@@ -1,9 +1,9 @@
 from collections.abc import Generator
 from typing import Any
 
-from lua.ast_nodes.base_nodes import AstNode, NodeFirst, AstNodeType
-from lua.lexer import Token, BufferedTokenStream
-from lua.exceptions import WrongTokenError
+from lua.lua_ast.lexer import Token, BufferedTokenStream
+from lua.lua_ast.exceptions import WrongTokenError
+from lua.lua_ast.ast_nodes.base_nodes import AstNode, NodeFirst, AstNodeType
 
 # adds dupclicates to dict src
 # store values with the same key in a list
@@ -91,7 +91,10 @@ def parse_terminal(
 ):
     if (t := next(stream)).content != expected_value:
         raise WrongTokenError(
-            t, stream, err_name if err_name else f"'{expected_value}'", prev_err_name
+            t.content,
+            t.pos,
+            err_name if err_name else f"'{expected_value}'",
+            prev_err_name,
         )
 
 
@@ -105,9 +108,10 @@ def parse_node(
     err_name: str = "",
 ) -> AstNodeType:
     if not node_type.presented_in_stream(stream):
+        t = next(stream)
         raise WrongTokenError(
-            next(stream),
-            stream,
+            t.content,
+            t.pos,
             err_name if err_name else node_type.ERROR_NAME,
             prev_err_name,
         )
@@ -147,9 +151,8 @@ def parse_node_list(
 
         else:
             error_name = f"'{next(stream).content}'"
-            raise WrongTokenError(
-                next(stream), stream, node_type.ERROR_NAME, error_name
-            )
+            t = next(stream)
+            raise WrongTokenError(t.content, t.pos, node_type.ERROR_NAME, error_name)
 
 
 # used to reduce code while parsing simple rules
