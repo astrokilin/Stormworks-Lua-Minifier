@@ -1,4 +1,5 @@
 import sys
+import re
 
 from lua import LuaObject, ParsingError
 
@@ -12,7 +13,9 @@ if __name__ == "__main__":
         except ParsingError as e:
             print(
                 e.err_line,
-                e.err_line[: e.file_pos[1] - 1] + "^" * e.file_pos[2],
+                re.sub("[^\t ]", " ", e.err_line[: e.file_pos[1] - 1])
+                + "^" * e.file_pos[2],
                 str(e),
                 sep="\n",
             )
+            sys.exit(1)
