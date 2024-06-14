@@ -416,7 +416,7 @@ class FieldNode(DataNode):
     def parse_tree_descendants(self):
         match self.index_node:
             case ExpNode():
-                return iter(("]", self.exp_node, "[", "=", self.index_node))
+                return iter((self.exp_node, "=", "]", self.index_node, "["))
 
             case NameNode():
                 return iter((self.exp_node, "=", self.index_node))

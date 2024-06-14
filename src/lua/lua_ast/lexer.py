@@ -60,14 +60,28 @@ class BufferedTokenStream:
 
 class LuaLexer:
     LUA_TOKEN_PATTERNS = (
-        TokenPattern("delimeter", r"[\s\n\r]+", ignore=True),
-        TokenPattern("comment", r"--\[(=*)\[[\s\S]*--\]\1\]|--[^\n]*", ignore=True),
+        TokenPattern(
+            "delimeter",
+            r"[\s\n\r]+",
+            ignore=True
+        ),
+        TokenPattern(
+            "comment",
+            r"--(?:\[(?P<_eq>=*)\[[\s\S]*\](?P=_eq)\]|\n|[^[].*)",
+            ignore=True,
+        ),
         TokenPattern(
             "keyword",
             r"(?:false|local|then|break|for|nil|true|do|function|until|else|goto|while|elseif|if|repeat|end|in|return)\b",
         ),
-        TokenPattern("other", r"\.{3}|::|:|\."),
-        TokenPattern("op", r"not|and|or|<<|>>|//|==|~=|<=|>=|\.{2}|[+\-*%\^#&|<>=/~]"),
+        TokenPattern(
+            "other",
+            r"\.{3}|::|:|\."
+        ),
+        TokenPattern(
+            "op",
+            r"not|and|or|<<|>>|//|==|~=|<=|>=|\.{2}|[+\-*%\^#&|<>=/~]"
+        ),
         TokenPattern(
             "string",
             r'"(?:[^"\\\n]|' +
@@ -79,7 +93,10 @@ class LuaLexer:
             r"""\\(?:[abfnrtvz\\"']|x[a-fA-F0-9]{2}|[0-9]{1,3}|u{[a-fA-F0-9]+}|\n\s*)"""
             + r")*'|(?:\[(?P<eq_sign>=*)\[[\s\S]*\](?P=eq_sign)\])",
         ),
-        TokenPattern("punct", r"[(){}\[\];,]"),
+        TokenPattern(
+            "punct",
+            r"[(){}\[\];,]"
+        ),
         TokenPattern(
             "numeral",
             r"-?(?:" +
@@ -90,8 +107,14 @@ class LuaLexer:
             # dec num regex
             r"[0-9]+(?:\.[0-9]+)?(?:[pPeE][+-]?[0-9]+)?" + ")",
         ),
-        TokenPattern("id", r"[A-Za-z_]\w*"),
-        TokenPattern("EOF", r"\Z"),
+        TokenPattern(
+            "id",
+            r"[A-Za-z_]\w*"
+        ),
+        TokenPattern(
+                "EOF",
+                r"\Z"
+        ),
     )
 
     def __init__(self):
