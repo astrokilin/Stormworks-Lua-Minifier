@@ -1,46 +1,19 @@
 from __future__ import annotations
-from collections.abc import Generator, KeysView, Iterator
+from collections.abc import Generator, Iterator
 from enum import Enum, auto
-from typing import TextIO, TypeVar
+from typing import TypeVar
 from itertools import repeat
 
-from lua.lua_ast.lexer import BufferedTokenStream
-
-NodeFirst = set[str] | KeysView[str]
+from lua.lua_ast.parsing import Parsable
 
 
 class AstNode:
-    FIRST_CONTENTS: NodeFirst = set()
-    FIRST_NAMES: NodeFirst = set()
-
-    ERROR_NAME: str = ""
-
     __slots__ = ()
 
-    def __init__(self):
-        pass
+    # ast dfs traversal
 
-    # methods for tree parsing
-
-    # this method construct node from token stream
-    # It should be called only when u can guarantee that it will get right first token
-    @classmethod
-    def from_tokens(cls: type[AstNodeType], stream: BufferedTokenStream) -> AstNodeType:
-        next(stream)
-        return cls()
-
-    @classmethod
-    def presented_in_stream(cls, stream: BufferedTokenStream, index: int = 0) -> bool:
-        t = stream.peek(index)
-        return t.content in cls.FIRST_CONTENTS or t.name in cls.FIRST_NAMES
-
-    # methods for tree traversal
-
-    # these methods should return descendants in reversed order
+    # should return descendants in reversed order
     def descendants(self) -> Iterator[AstNode]:
-        return iter(())
-
-    def parse_tree_descendants(self) -> Iterator[AstNode | str]:
         return iter(())
 
     # node, depth, descendant number of node, number of node descendants
@@ -55,6 +28,12 @@ class AstNode:
                 print(node)
             stack.extend(zip(enumerate(node.descendants()), repeat(depth + 1)))
             yield node, depth, node_num, len(stack) - d
+
+    # simulate parse tree traversal
+
+    # should return parse descendants in reversed order
+    def parse_tree_descendants(self) -> Iterator[AstNode | str]:
+        return iter(())
 
     def terminals(self) -> Generator[str, None, None]:
         stack: list[AstNode | str] = [self]
@@ -109,7 +88,7 @@ class DataNode(AstNode):
 # Descendants of this node represents operations
 
 
-class OperationNode(DataNode):
+class OperationNode(DataNode, Parsable):
     _OPERATION_PRECEDENCE: dict[str, int] = {}
     _RIGHT_ASSOC_OPERATIONS: set[str] = {"..", "^"}
 
@@ -119,8 +98,8 @@ class OperationNode(DataNode):
         self.opcode = opcode
 
     @classmethod
-    def from_tokens(cls, stream: BufferedTokenStream):
-        return cls(opcode=next(stream).content)
+    def parsable_from_parser(cls, parser):
+        return cls(opcode=next(parser.token_stream).content)
 
     def __repr__(self):
         return super().__repr__() + f" opcode: {self.opcode}"

@@ -57,14 +57,33 @@ class BufferedTokenStream:
 
         return self.__buffer[k]
 
+    # allows to skip braced constructions like '(' exp ')'
+    # index should point to start brace symbol
+    # returns index of last stop brace symbol
+    def peek_matching_parenthesis(self, start: str, stop: str, index: int = 0) -> int:
+        if (sym := self.peek(index).content) == start:
+            stack = [
+                sym,
+            ]
+            while stack:
+                index += 1
+                t = self.peek(index)
+                sym = t.content
+                if sym == start:
+                    stack.append(sym)
+                elif sym == stop:
+                    stack.pop()
+                elif t.name == "EOF":
+                    return index
+
+            return index + 1
+
+        return index
+
 
 class LuaLexer:
     LUA_TOKEN_PATTERNS = (
-        TokenPattern(
-            "delimeter",
-            r"[\s\n\r]+",
-            ignore=True
-        ),
+        TokenPattern("delimeter", r"[\s\n\r]+", ignore=True),
         TokenPattern(
             "comment",
             r"--(?:\[(?P<_eq>=*)\[[\s\S]*\](?P=_eq)\]|\n|[^[].*)",
@@ -74,29 +93,20 @@ class LuaLexer:
             "keyword",
             r"(?:false|local|then|break|for|nil|true|do|function|until|else|goto|while|elseif|if|repeat|end|in|return)\b",
         ),
-        TokenPattern(
-            "other",
-            r"\.{3}|::|:|\."
-        ),
-        TokenPattern(
-            "op",
-            r"not|and|or|<<|>>|//|==|~=|<=|>=|\.{2}|[+\-*%\^#&|<>=/~]"
-        ),
+        TokenPattern("other", r"\.{3}|::|:|\."),
+        TokenPattern("op", r"not|and|or|<<|>>|//|==|~=|<=|>=|\.{2}|[+\-*%\^#&|<>=/~]"),
         TokenPattern(
             "string",
             r'"(?:[^"\\\n]|' +
             # escape sequence regex
             r"""\\(?:[abfnrtvz\\"']|x[a-fA-F0-9]{2}|[0-9]{1,3}|u{[a-fA-F0-9]+}|\n\s*)"""
-            + r""")*"|'(?:[^'\\\n]"""
+            + r""")*"|'(?:[^'\\\n]|"""
             +
             # escape sequence regex
             r"""\\(?:[abfnrtvz\\"']|x[a-fA-F0-9]{2}|[0-9]{1,3}|u{[a-fA-F0-9]+}|\n\s*)"""
             + r")*'|(?:\[(?P<eq_sign>=*)\[[\s\S]*\](?P=eq_sign)\])",
         ),
-        TokenPattern(
-            "punct",
-            r"[(){}\[\];,]"
-        ),
+        TokenPattern("punct", r"[(){}\[\];,]"),
         TokenPattern(
             "numeral",
             r"-?(?:" +
@@ -107,14 +117,8 @@ class LuaLexer:
             # dec num regex
             r"[0-9]+(?:\.[0-9]+)?(?:[pPeE][+-]?[0-9]+)?" + ")",
         ),
-        TokenPattern(
-            "id",
-            r"[A-Za-z_]\w*"
-        ),
-        TokenPattern(
-                "EOF",
-                r"\Z"
-        ),
+        TokenPattern("id", r"[A-Za-z_]\w*"),
+        TokenPattern("EOF", r"\Z"),
     )
 
     def __init__(self):
@@ -156,11 +160,16 @@ class LuaLexer:
             "'",
             '"',
         }
-        if (prev_terminal := next(term_iter, None)) is None:
-            return ""
+
+        prev_terminal = next(term_iter, None)
+
+        if prev_terminal is None:
+            yield ""
+            return
+
+        yield prev_terminal
 
         concat = prev_terminal[-1] in concat_syms
-        yield prev_terminal
 
         for terminal in term_iter:
             new_concat = terminal[-1] in concat_syms

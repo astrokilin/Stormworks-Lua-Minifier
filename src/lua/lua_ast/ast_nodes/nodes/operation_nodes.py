@@ -1,11 +1,6 @@
 from __future__ import annotations
-from collections.abc import Iterator
 
-from lua.lua_ast.parsing_routines import TokenDispatchTable
 from lua.lua_ast.ast_nodes.base_nodes import (
-    AstNode,
-    AstNodeType,
-    NodeFirst,
     DataNode,
     OperationNode,
 )
@@ -36,9 +31,8 @@ class BinOpNode(OperationNode):
         "^": 11,
     }
 
-    FIRST_CONTENTS: NodeFirst = _OPERATION_PRECEDENCE.keys()
-
-    ERROR_NAME: str = "binary operation"
+    PARSABLE_FIRST_TOKEN_CONTENTS = _OPERATION_PRECEDENCE.keys()
+    PARSABLE_ERROR_NAME = "binary operation"
 
     __slots__ = "left_operand_node", "right_operand_node"
 
@@ -63,9 +57,8 @@ class BinOpNode(OperationNode):
 class UnOpNode(OperationNode):
     _OPERATION_PRECEDENCE = {"-": 10, "not": 10, "#": 10, "~": 10}
 
-    FIRST_CONTENTS: NodeFirst = _OPERATION_PRECEDENCE.keys()
-
-    ERROR_NAME: str = "unary operation"
+    PARSABLE_FIRST_TOKEN_CONTENTS = _OPERATION_PRECEDENCE.keys()
+    PARSABLE_ERROR_NAME = "unary operation"
 
     __slots__ = ("right_operand_node",)
 

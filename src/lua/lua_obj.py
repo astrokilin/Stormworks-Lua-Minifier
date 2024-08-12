@@ -1,11 +1,10 @@
 from typing import TextIO
-from enum import Enum, auto
 
 from lua.exceptions import ParsingError
 
 from lua.lua_ast.lexer import LuaLexer
-from lua.lua_ast.parsing_routines import parse_node
-from lua.lua_ast.ast_nodes.nodes.statement_nodes import *
+from lua.lua_ast.parsing import LuaParser
+from lua.lua_ast.ast_nodes.nodes.statement_nodes import BlockNode
 from lua.lua_ast.exceptions import UnexpectedSymbolError, WrongTokenError
 
 
@@ -15,10 +14,10 @@ class LuaObject:
         code = code_file.read()
 
         try:
-            self.ast_top_block = parse_node(
-                LuaLexer().create_buffered_stream(code),
+            self.ast_top_block: BlockNode = LuaParser(code).parse_parsable(
                 BlockNode,
                 "start of file",
+                True,
                 "statement",
             )
         except (UnexpectedSymbolError, WrongTokenError) as e:

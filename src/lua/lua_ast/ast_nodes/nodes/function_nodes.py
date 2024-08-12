@@ -1,29 +1,23 @@
 from __future__ import annotations
-from collections.abc import Iterator
+from typing import Self
 from itertools import chain
 
-from lua.lua_ast.lexer import BufferedTokenStream
-from lua.lua_ast.parsing_routines import (
-    TokenDispatchTable,
-    parse_node_list,
-    parse_simple_rule,
-    parse_node,
+from lua.lua_ast.parsing import (
+    Parsable,
+    parsable_starts_with,
+    LuaParser,
 )
-from lua.lua_ast.runtime_routines import iter_sep, starts_with
-from lua.lua_ast.ast_nodes.base_nodes import AstNode, NodeFirst, AstNodeType
+from lua.lua_ast.runtime_routines import iter_sep
+from lua.lua_ast.ast_nodes.base_nodes import AstNode
 
 import lua.lua_ast.ast_nodes.nodes.data_nodes as data_nodes
 import lua.lua_ast.ast_nodes.nodes.statement_nodes as statement_nodes
 
 
-class FuncBodyNode(AstNode):
-    FIRST_CONTENTS: NodeFirst = {"("}
-
-    ERROR_NAME: str = "function body"
-
+class FuncBodyNode(AstNode, Parsable):
+    # vararg if it exists should be the last element of args_node_list
     __slots__ = "args_node_list", "block_node"
 
-    # vararg if it exists should be the last element of args_node_list
     def __init__(
         self,
         args_node_list: list[data_nodes.NameNode | data_nodes.VarargNode],
@@ -31,38 +25,6 @@ class FuncBodyNode(AstNode):
     ):
         self.args_node_list = args_node_list
         self.block_node = block_node
-
-    @classmethod
-    def from_tokens(cls, stream: BufferedTokenStream):
-        # skip (
-        err_name = next(stream).content
-        # args_node_list presents
-        args_node_list: list[data_nodes.NameNode | data_nodes.VarargNode] = []
-
-        if data_nodes.NameNode.presented_in_stream(stream):
-            args_node_list.extend(parse_node_list(stream, data_nodes.NameNode))
-
-            if stream.peek().content == ",":
-                args_node_list.append(
-                    parse_node(
-                        stream,
-                        data_nodes.VarargNode,
-                        next(stream).content,
-                        f"{data_nodes.NameNode.ERROR_NAME} or {data_nodes.VarargNode.ERROR_NAME}",
-                    )
-                )
-
-            err_name = args_node_list[-1].ERROR_NAME
-
-        elif data_nodes.VarargNode.presented_in_stream(stream):
-            args_node_list.append(data_nodes.VarargNode.from_tokens(stream))
-            err_name = args_node_list[-1].ERROR_NAME
-
-        (block_node,) = parse_simple_rule(
-            stream, (")", statement_nodes.BlockNode, "end"), err_name
-        )
-
-        return cls(args_node_list, block_node)
 
     def descendants(self):
         return chain(reversed(self.args_node_list), (self.block_node,))
@@ -74,11 +36,45 @@ class FuncBodyNode(AstNode):
             ("(",),
         )
 
+    PARSABLE_FIRST_TOKEN_CONTENTS = {"("}
+    PARSABLE_ERROR_NAME = "function body"
 
-@starts_with(data_nodes.NameNode)
-class FuncNameNode(AstNode):
-    ERROR_NAME: str = "function name"
+    @classmethod
+    def parsable_from_parser(cls, parser: LuaParser) -> Self:
+        stream = parser.token_stream
+        # skip (
+        err_name = next(stream).content
+        # args_node_list presents
+        args_node_list: list[data_nodes.NameNode | data_nodes.VarargNode] = []
 
+        if data_nodes.NameNode.parsable_presented_in_stream(stream):
+            args_node_list.extend(parser.parse_list(data_nodes.NameNode))
+
+            if stream.peek().content == ",":
+                args_node_list.append(
+                    parser.parse_parsable(
+                        data_nodes.VarargNode,
+                        next(stream).content,
+                        True,
+                        f"{data_nodes.NameNode.PARSABLE_ERROR_NAME} or {data_nodes.VarargNode.PARSABLE_ERROR_NAME}",
+                    )
+                )
+
+            err_name = args_node_list[-1].PARSABLE_ERROR_NAME
+
+        elif data_nodes.VarargNode.parsable_presented_in_stream(stream):
+            args_node_list.append(parser.parse_parsable(data_nodes.VarargNode))
+            err_name = args_node_list[-1].PARSABLE_ERROR_NAME
+
+        (block_node,) = parser.parse_simple_rule(
+            (")", statement_nodes.BlockNode, "end"), err_name
+        )
+
+        return cls(args_node_list, block_node)
+
+
+@parsable_starts_with(data_nodes.NameNode)
+class FuncNameNode(AstNode, Parsable):
     __slots__ = "name_node_list", "method_name_node"
 
     # name_node_list always has at least one name
@@ -90,29 +86,32 @@ class FuncNameNode(AstNode):
         self.name_node_list = name_node_list
         self.method_name_node = method_name_node
 
+    def descendants(self):
+        g = reversed(self.name_node_list)
+        return (
+            g if self.method_name_node is None else chain((self.method_name_node,), g)
+        )
+
+    def parse_tree_descendants(self):
+        g = iter_sep(reversed(self.name_node_list), ".")
+        return (
+            g
+            if self.method_name_node is None
+            else chain((self.method_name_node, ":"), g)
+        )
+
+    PARSABLE_ERROR_NAME = "function name"
+
     @classmethod
-    def from_tokens(cls, stream: BufferedTokenStream):
-        name_node_list = list(parse_node_list(stream, data_nodes.NameNode, {"."}))
+    def parsable_from_parser(cls, parser: LuaParser) -> Self:
+        name_node_list = list(parser.parse_list(data_nodes.NameNode, {"."}))
 
         # parse [':' Name]
+        stream = parser.token_stream
         method_name_node = None
         if stream.peek().content == ":":
-            method_name_node = parse_node(
-                stream, data_nodes.NameNode, next(stream).content
+            method_name_node = parser.parse_parsable(
+                data_nodes.NameNode, next(stream).content, True
             )
 
         return cls(name_node_list, method_name_node)
-
-    def descendants(self):
-        if self.method_name_node is None:
-            return reversed(self.name_node_list)
-
-        return chain((method_name_node,), reversed(self.name_node_list))
-
-    def parse_tree_descendants(self):
-        if self.method_name_node is None:
-            return iter_sep(reversed(self.name_node_list), ".")
-
-        return chain(
-            (self.method_name_node, ":"), iter_sep(reversed(self.name_node_list), ".")
-        )
