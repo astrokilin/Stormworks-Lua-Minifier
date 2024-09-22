@@ -8,6 +8,7 @@ if __name__ == "__main__":
         try:
             l_obj = LuaObject(file)
             # l_obj.show_ast()
+            l_obj.do_renaming()
             l_obj.text()
 
         except ParsingError as e:

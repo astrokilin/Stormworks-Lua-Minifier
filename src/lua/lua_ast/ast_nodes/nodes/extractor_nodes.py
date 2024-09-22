@@ -18,7 +18,7 @@ import lua.lua_ast.ast_nodes.nodes.data_nodes as data_nodes
 class TableGetterNode(AstNode, ParsableSkipable):
     __slots__ = ("field_node",)
 
-    def __init__(self, field_node: data_nodes.NameNode | data_nodes.ExpNode):
+    def __init__(self, field_node: data_nodes.NameNode | data_nodes.ExpNode) -> None:
         self.field_node = field_node
 
     def descendants(self):
@@ -59,7 +59,9 @@ class TableGetterNode(AstNode, ParsableSkipable):
 class MethodGetterNode(AstNode, ParsableSkipable):
     __slots__ = "name_node", "funcgetter_node"
 
-    def __init__(self, name_node: data_nodes.NameNode, funcgetter_node: FuncGetterNode):
+    def __init__(
+        self, name_node: data_nodes.NameNode, funcgetter_node: FuncGetterNode
+    ) -> None:
         self.name_node = name_node
         self.funcgetter_node = funcgetter_node
 
@@ -104,7 +106,7 @@ class FuncGetterNode(AstNode, ParsableSkipable):
         arg: list[data_nodes.ExpNode]
         | data_nodes.TableConstrNode
         | data_nodes.ConstNode,
-    ):
+    ) -> None:
         self.arg = arg
 
     def descendants(self):

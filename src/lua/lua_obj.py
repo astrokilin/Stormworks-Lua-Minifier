@@ -6,10 +6,13 @@ from lua.lua_ast.lexer import LuaLexer
 from lua.lua_ast.parsing import LuaParser
 from lua.lua_ast.ast_nodes.nodes.statement_nodes import BlockNode
 from lua.lua_ast.exceptions import UnexpectedSymbolError, WrongTokenError
+from lua.analysis.scope_graph import NamesStat
 
 
 class LuaObject:
-    def __init__(self, code_file: TextIO):
+    """represents lua code file"""
+
+    def __init__(self, code_file: TextIO) -> None:
         self.code_file = code_file
         code = code_file.read()
 
@@ -26,28 +29,23 @@ class LuaObject:
             line = code.split("\n")[line_num - 1]
             raise ParsingError(
                 code_file.name, (line_num, row_num, len(e.err_content)), line, str(e)
-            )
+            ) from e
 
     def __str__(self):
         return str(self.ast_top_block)
 
+    def do_renaming(self):
+        """rename all variables to shortest names"""
+
+        st = NamesStat.from_lua_ast(self.ast_top_block)
+        st.optimize_names()
+
     def text(self):
+        """converts lua abstract syntax tree to short text"""
+
         print(*LuaLexer.concat(self.ast_top_block.terminals()), sep="")
 
     def show_ast(self):
-        first_syms = []
-        dfs_iter = self.ast_top_block.dfs()
+        """prints lua abstract syntax tree, used mostly for debug reasons"""
 
-        # skip top node
-        print(repr(next(dfs_iter)[0]))
-
-        for n, _, i, c in dfs_iter:
-            print(*first_syms, ("├" if i else "└"), "── ", repr(n), sep="")
-            if i and c:
-                first_syms.extend(("│", "    "))
-            elif not i:
-                first_syms.append("    ")
-
-            if (not i) and (not c):
-                while first_syms and first_syms.pop() != "│":
-                    pass
+        self.ast_top_block.show()

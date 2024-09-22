@@ -1,3 +1,7 @@
+"""
+This module provides everything connected with lexical structure of lua
+"""
+
 import re
 from dataclasses import dataclass
 from collections import deque
@@ -21,7 +25,9 @@ class TokenPattern:
 
 
 class BufferedTokenStream:
-    def __init__(self, txt: str, pattern: str, skip_table: dict[str, bool]):
+    """iterator that returns tokens and supports lookahead for n tokens"""
+
+    def __init__(self, txt: str, pattern: str, skip_table: dict[str, bool]) -> None:
         self.__content = txt
         self.__iter = re.finditer(pattern, self.__content)
         self.__skip_table = skip_table
@@ -49,6 +55,10 @@ class BufferedTokenStream:
         return self.__buffer.popleft()
 
     def peek(self, k: int = 0) -> Token:
+        """used to lookahead for k symbols
+        does not change the iterator state
+        """
+
         if k < len(self.__buffer):
             return self.__buffer[k]
 
@@ -57,10 +67,13 @@ class BufferedTokenStream:
 
         return self.__buffer[k]
 
-    # allows to skip braced constructions like '(' exp ')'
-    # index should point to start brace symbol
-    # returns index of last stop brace symbol
     def peek_matching_parenthesis(self, start: str, stop: str, index: int = 0) -> int:
+        """used to lookahead the braced constructions like '(' exp ')'
+
+        index should point to opening brace symbol
+        return index of last equal closing brace symbol
+        """
+
         if (sym := self.peek(index).content) == start:
             stack = [
                 sym,
@@ -82,6 +95,8 @@ class BufferedTokenStream:
 
 
 class LuaLexer:
+    """singleton class representing lua lexical rules"""
+
     LUA_TOKEN_PATTERNS = (
         TokenPattern("delimeter", r"[\s\n\r]+", ignore=True),
         TokenPattern(
@@ -129,10 +144,15 @@ class LuaLexer:
         self.__skip_names = {t.name: t.ignore for t in self.LUA_TOKEN_PATTERNS}
 
     def create_buffered_stream(self, txt: str) -> BufferedTokenStream:
+        """create token iterator from text string"""
+
         return BufferedTokenStream(txt, self.__final_pattern, self.__skip_names)
 
     @staticmethod
     def concat(term_iter: Iterator[str]) -> Iterator[str]:
+        """puts spaces where its necessary between terms recieved from ast iterator
+        some terms in lua should be separated by space like 'local function'
+        """
         concat_syms = {
             "+",
             "-",

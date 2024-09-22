@@ -1,41 +1,34 @@
+"""
+This module contains all parent classes for lua abstact syntax tree
+"""
+
 from __future__ import annotations
 from collections.abc import Generator, Iterator
 from enum import Enum, auto
 from typing import TypeVar
-from itertools import repeat
 
+from lua.graph import TreeNode
 from lua.lua_ast.parsing import Parsable
 
 
-class AstNode:
+class AstNode(TreeNode):
+    """represents lua abstract syntax tree (ast) node
+    all ast nodes should inherit from this class
+    and provide realization for its public methods
+    """
+
     __slots__ = ()
-
-    # ast dfs traversal
-
-    # should return descendants in reversed order
-    def descendants(self) -> Iterator[AstNode]:
-        return iter(())
-
-    # node, depth, descendant number of node, number of node descendants
-    def dfs(
-        self,
-    ) -> Generator[tuple[AstNode, int, int, int], None, None]:
-        stack: list[tuple[tuple[int, AstNode], int]] = [((0, self), 0)]
-        while stack:
-            (node_num, node), depth = stack.pop()
-            d = len(stack)
-            if isinstance(node, str):
-                print(node)
-            stack.extend(zip(enumerate(node.descendants()), repeat(depth + 1)))
-            yield node, depth, node_num, len(stack) - d
 
     # simulate parse tree traversal
 
     # should return parse descendants in reversed order
     def parse_tree_descendants(self) -> Iterator[AstNode | str]:
+        """should return parse descendants (nodes or strings) in reversed order"""
         return iter(())
 
     def terminals(self) -> Generator[str, None, None]:
+        """convert ast node to term iterator"""
+
         stack: list[AstNode | str] = [self]
         while stack:
             str_or_node = stack.pop()
@@ -56,14 +49,13 @@ class AstNode:
 AstNodeType = TypeVar("AstNodeType", bound=AstNode, covariant=True)
 
 
-# Descendant of this node represents data
-# It should be possible for data to get its type
-
-
 class DataNode(AstNode):
+    """descendant of this node represents data"""
+
     __slots__ = ()
 
     class DataTypes(Enum):
+        """enum for all lua types"""
         NIL = auto()
         BOOLEAN = auto()
         FUNCTION = auto()
@@ -89,12 +81,14 @@ class DataNode(AstNode):
 
 
 class OperationNode(DataNode, Parsable):
+    """descendants of this node represents operations"""
+
     _OPERATION_PRECEDENCE: dict[str, int] = {}
     _RIGHT_ASSOC_OPERATIONS: set[str] = {"..", "^"}
 
     __slots__ = ("opcode",)
 
-    def __init__(self, opcode: str):
+    def __init__(self, opcode: str) -> None:
         self.opcode = opcode
 
     @classmethod
@@ -106,8 +100,10 @@ class OperationNode(DataNode, Parsable):
 
     @property
     def precedence(self) -> int:
+        """get precedence of the operation"""
         return self._OPERATION_PRECEDENCE[self.opcode]
 
     @property
     def right_associativity(self) -> bool:
+        """check whether the operation is right associative"""
         return self.opcode in self._RIGHT_ASSOC_OPERATIONS

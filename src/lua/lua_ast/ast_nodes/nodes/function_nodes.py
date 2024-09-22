@@ -15,24 +15,34 @@ import lua.lua_ast.ast_nodes.nodes.statement_nodes as statement_nodes
 
 
 class FuncBodyNode(AstNode, Parsable):
-    # vararg if it exists should be the last element of args_node_list
-    __slots__ = "args_node_list", "block_node"
+    __slots__ = "name_node_list", "vararg_node", "block_node"
 
     def __init__(
         self,
-        args_node_list: list[data_nodes.NameNode | data_nodes.VarargNode],
+        name_node_list: list[data_nodes.NameNode],
+        vararg_node: data_nodes.VarargNode | None,
         block_node: statement_nodes.BlockNode,
-    ):
-        self.args_node_list = args_node_list
+    ) -> None:
+        self.name_node_list = name_node_list
+        self.vararg_node = vararg_node
         self.block_node = block_node
 
     def descendants(self):
-        return chain(reversed(self.args_node_list), (self.block_node,))
+        return chain(
+            (self.vararg_node,) if self.vararg_node is not None else (),
+            reversed(self.name_node_list),
+            (self.block_node,),
+        )
 
     def parse_tree_descendants(self):
         return chain(
             ("end", self.block_node, ")"),
-            iter_sep(reversed(self.args_node_list)),
+            iter_sep(
+                chain(
+                    (self.vararg_node,) if self.vararg_node is not None else (),
+                    reversed(self.name_node_list),
+                )
+            ),
             ("(",),
         )
 
@@ -44,33 +54,33 @@ class FuncBodyNode(AstNode, Parsable):
         stream = parser.token_stream
         # skip (
         err_name = next(stream).content
-        # args_node_list presents
-        args_node_list: list[data_nodes.NameNode | data_nodes.VarargNode] = []
+        name_node_list: list[data_nodes.NameNode] = []
+        vararg_node: data_nodes.VarargNode | None = None
 
         if data_nodes.NameNode.parsable_presented_in_stream(stream):
-            args_node_list.extend(parser.parse_list(data_nodes.NameNode))
+            name_node_list.extend(parser.parse_list(data_nodes.NameNode))
 
             if stream.peek().content == ",":
-                args_node_list.append(
-                    parser.parse_parsable(
-                        data_nodes.VarargNode,
-                        next(stream).content,
-                        True,
-                        f"{data_nodes.NameNode.PARSABLE_ERROR_NAME} or {data_nodes.VarargNode.PARSABLE_ERROR_NAME}",
-                    )
+                vararg_node = parser.parse_parsable(
+                    data_nodes.VarargNode,
+                    next(stream).content,
+                    True,
+                    f"{data_nodes.NameNode.PARSABLE_ERROR_NAME} or {data_nodes.VarargNode.PARSABLE_ERROR_NAME}",
                 )
+                err_name = data_nodes.VarargNode.PARSABLE_ERROR_NAME
 
-            err_name = args_node_list[-1].PARSABLE_ERROR_NAME
+            else:
+                err_name = data_nodes.NameNode.PARSABLE_ERROR_NAME
 
         elif data_nodes.VarargNode.parsable_presented_in_stream(stream):
-            args_node_list.append(parser.parse_parsable(data_nodes.VarargNode))
-            err_name = args_node_list[-1].PARSABLE_ERROR_NAME
+            vararg_node = parser.parse_parsable(data_nodes.VarargNode)
+            err_name = data_nodes.VarargNode.PARSABLE_ERROR_NAME
 
         (block_node,) = parser.parse_simple_rule(
             (")", statement_nodes.BlockNode, "end"), err_name
         )
 
-        return cls(args_node_list, block_node)
+        return cls(name_node_list, vararg_node, block_node)
 
 
 @parsable_starts_with(data_nodes.NameNode)
@@ -82,7 +92,7 @@ class FuncNameNode(AstNode, Parsable):
         self,
         name_node_list: list[data_nodes.NameNode],
         method_name_node: data_nodes.NameNode | None,
-    ):
+    ) -> None:
         self.name_node_list = name_node_list
         self.method_name_node = method_name_node
 

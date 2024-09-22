@@ -1,3 +1,7 @@
+"""
+This module provides basic approaches to parsing lua abstract syntax tree nodes
+"""
+
 from __future__ import annotations
 from collections.abc import Generator, KeysView, Callable
 from typing import Any, TypeVar
@@ -12,6 +16,17 @@ T = TypeVar("T", bound="Parsable")
 
 
 class Parsable:
+    """all ast nodes should inherit and implement this class fields in order to be parsable
+    class fields:
+        PARSABLE_FIRST_TOKEN_NAMES -- set of token names from which textual
+            representations of the parsable object can begin
+        PARSABLE_FIRST_TOKEN_CONTENTS -- same but token contents
+        PARSABLE_ERROR_NAME -- when error occurs during parsing of this
+            object this name will be printed in message
+        PARSABLE_MARK_POS -- ask parser to remember position of first token
+            of this object in file
+    """
+
     PARSABLE_FIRST_TOKEN_CONTENTS: ParsableFirstTokenType = set()
     PARSABLE_FIRST_TOKEN_NAMES: ParsableFirstTokenType = set()
 
@@ -21,20 +36,25 @@ class Parsable:
 
     __slots__ = ()
 
-    # this method should construct node from parser.token_stream
-    # changes parser state
-    # should be called only when u can guarantee that it will get right first token
     @classmethod
     def parsable_from_parser(cls: type[T], parser: LuaParser) -> T:
+        """this method should construct node from parser.token_stream
+        changes parser state
+        should be called only when one can guarantee that it will get right first token
+        """
+
         next(parser.token_stream)
         return cls()
 
-    # since this method should not change the stream state
-    # it can be called directly during parsing
     @classmethod
     def parsable_presented_in_stream(
         cls, stream: BufferedTokenStream, index: int = 0
     ) -> bool:
+        """used to determine whether parsable object can be parsed from token stream
+        since this method should not change the stream state
+        it can be called directly during parsing
+        """
+
         t = stream.peek(index)
         return (
             t.content in cls.PARSABLE_FIRST_TOKEN_CONTENTS
@@ -45,23 +65,28 @@ class Parsable:
 # to determine some nodes we need to skip n tokens in stream
 # thus skiping the nodes
 class ParsableSkipable(Parsable):
-    # skips enought tokens in stream to skip the node, returns index of
-    # first token that is not cls node
-    # should not change the stream state
-    # can be called directly during parsing
+    """skips enought tokens in stream to skip the node, returns index of
+    first token that is not cls node
+    should not change the stream state
+    can be called directly during parsing
+    """
+
     @classmethod
     def parsable_skip_in_stream(cls, stream: BufferedTokenStream, index: int) -> int:
+        """skip enought tokens in stream to skip the node that can be parsed from them"""
         return index + 1
 
 
 ParsableType = type[Parsable]
 
 
-# decorator that help to form correct FIRST_TOKEN fields for
-# parsable type that starts with another parsable when parsing
 def parsable_starts_with(
     *starting_nonterms: ParsableType,
 ) -> Callable[[ParsableType], ParsableType]:
+    """decorator that help to form correct FIRST_TOKEN fields for
+    parsable type that starts with another parsable when parsing
+    """
+
     def decorate(orig_class: ParsableType):
         for nonterm_class in starting_nonterms:
             # I guess sometimes we can just link
@@ -104,18 +129,22 @@ def _dict_add_duplicates(src: dict, keys: ParsableFirstTokenType, value: Any):
 
 
 class TokenDispatchTable:
+    """dispatch other objects depending on token"""
+
     __slots__ = "contents", "names"
 
-    def __init__(self, contents: dict[str, Any], names: dict[str, Any]):
+    def __init__(self, contents: dict[str, Any], names: dict[str, Any]) -> None:
         self.contents = contents
         self.names = names
 
-    # makes class dispatch table from parsable classes and their
-    # PARSABLE_FIRST_TOKEN_CONTENTS and PARSABLE_FIRST_TOKEN_NAMES
-    # if we have 2 classes starting with same content or name
-    # will return list with these classes
     @classmethod
     def dispatch_types(cls, *parsable_classes: ParsableType):
+        """makes class dispatch table from parsable classes and their
+        PARSABLE_FIRST_TOKEN_CONTENTS and PARSABLE_FIRST_TOKEN_NAMES
+        if we have 2 classes starting with same content or name
+        will return list with these classes
+        """
+
         contents: dict[str, ParsableType] = {}
         names: dict[str, ParsableType] = {}
 
@@ -133,12 +162,14 @@ class TokenDispatchTable:
 
 
 class LuaParser:
+    """singleton that represents lua parser"""
+
     LEXER = LuaLexer()
 
-    def __init__(self, txt: str):
+    def __init__(self, txt: str) -> None:
         self.token_stream: BufferedTokenStream = self.LEXER.create_buffered_stream(txt)
         # id(node): position in file
-        self.positions_map: dict[int, int] = dict()
+        self.positions_map: dict[int, int] = {}
 
     def parse_terminal(
         self,
@@ -146,6 +177,8 @@ class LuaParser:
         prev_err_name: str,
         err_name: str = "",
     ):
+        """parse one terminal, if no expected_value recieved from next token contents, raise an exception"""
+
         if (t := next(self.token_stream)).content != expected_value:
             raise WrongTokenError(
                 t.content,
@@ -161,6 +194,8 @@ class LuaParser:
         greedy: bool = False,
         err_name: str = "",
     ) -> T:
+        """parse parsable object, if greedy absence of object in token stream will be treated as error"""
+
         stream = self.token_stream
 
         if greedy and not parsable_type.parsable_presented_in_stream(stream):
@@ -180,9 +215,6 @@ class LuaParser:
 
         return res
 
-    # used to parse constructions like
-    # nonterm separator nonterm ....
-    # non_empty - extract at least 1 element
     def parse_list(
         self,
         parsable_type: type[T],
@@ -191,6 +223,11 @@ class LuaParser:
         error_name: str = "",
         greedy: bool = False,
     ) -> Generator[T, None, None]:
+        """used to parse constructions like
+        nonterm separator nonterm ....
+        non_empty - extract at least 1 element
+        """
+
         stream = self.token_stream
 
         if non_empty:
@@ -217,13 +254,14 @@ class LuaParser:
                     t.content, t.pos, parsable_type.PARSABLE_ERROR_NAME, error_name
                 )
 
-    # used to parse simple rules
-    # like sequences of terms and nonterms
     def parse_simple_rule(
         self,
         rule: tuple[ParsableType | str, ...],
         error_name: str = "",
     ) -> Generator[Any, None, None]:
+        """used to parse simple grammar rules
+        like sequences of terms and nonterms
+        """
         for unit in rule:
             if isinstance(unit, str):
                 self.parse_terminal(unit, error_name)

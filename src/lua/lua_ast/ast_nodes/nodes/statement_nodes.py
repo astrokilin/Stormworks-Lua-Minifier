@@ -41,7 +41,7 @@ class FuncCallNode(data_nodes.PrefExpNode):
 class LabelNode(AstNode, Parsable):
     __slots__ = ("name_node",)
 
-    def __init__(self, name_node: data_nodes.NameNode):
+    def __init__(self, name_node: data_nodes.NameNode) -> None:
         self.name_node = name_node
 
     def descendants(self):
@@ -74,7 +74,7 @@ class BreakNode(AstNode, Parsable):
 class GotoNode(AstNode, Parsable):
     __slots__ = ("name_node",)
 
-    def __init__(self, name_node: data_nodes.NameNode):
+    def __init__(self, name_node: data_nodes.NameNode) -> None:
         self.name_node = name_node
 
     def descendants(self):
@@ -99,7 +99,7 @@ class GotoNode(AstNode, Parsable):
 class DoBlockNode(AstNode, Parsable):
     __slots__ = ("block_node",)
 
-    def __init__(self, block_node: BlockNode):
+    def __init__(self, block_node: BlockNode) -> None:
         self.block_node = block_node
 
     def descendants(self):
@@ -125,7 +125,7 @@ class DoBlockNode(AstNode, Parsable):
 class WhileLoopNode(AstNode, Parsable):
     __slots__ = "exp_node", "block_node"
 
-    def __init__(self, exp_node: data_nodes.ExpNode, block_node: BlockNode):
+    def __init__(self, exp_node: data_nodes.ExpNode, block_node: BlockNode) -> None:
         self.exp_node = exp_node
         self.block_node = block_node
 
@@ -150,7 +150,7 @@ class WhileLoopNode(AstNode, Parsable):
 class RepeatLoopNode(AstNode, Parsable):
     __slots__ = "exp_node", "block_node"
 
-    def __init__(self, exp_node: data_nodes.ExpNode, block_node: BlockNode):
+    def __init__(self, exp_node: data_nodes.ExpNode, block_node: BlockNode) -> None:
         self.exp_node = exp_node
         self.block_node = block_node
 
@@ -188,7 +188,7 @@ class ForLoopNode(AstNode, Parsable):
         cond_exp_node: data_nodes.ExpNode,
         iter_exp_node: data_nodes.ExpNode | None,
         block_node: BlockNode,
-    ):
+    ) -> None:
         self.name_node = name_node
         self.assign_exp_node = assign_exp_node
         self.cond_exp_node = cond_exp_node
@@ -255,7 +255,7 @@ class ForIterLoopNode(AstNode, Parsable):
         name_node_list: list[data_nodes.NameNode],
         exp_node_list: list[data_nodes.ExpNode],
         block_node: BlockNode,
-    ):
+    ) -> None:
         self.name_node_list = name_node_list
         self.exp_node_list = exp_node_list
         self.block_node = block_node
@@ -323,7 +323,7 @@ class VarsAssignNode(AstNode, Parsable):
         self,
         var_node_list: list[data_nodes.VarNode],
         exp_node_list: list[data_nodes.ExpNode],
-    ):
+    ) -> None:
         self.var_node_list = var_node_list
         self.exp_node_list = exp_node_list
 
@@ -370,7 +370,7 @@ class LocalVarsAssignNode(AstNode, Parsable):
         self,
         name_node_list: list[data_nodes.NameNode],
         exp_node_list: list[data_nodes.ExpNode],
-    ):
+    ) -> None:
         self.name_node_list = name_node_list
         self.exp_node_list = exp_node_list
 
@@ -437,7 +437,7 @@ class FuncAssignNode(AstNode, Parsable):
         self,
         funcname_node: function_nodes.FuncNameNode,
         funcbody_node: function_nodes.FuncBodyNode,
-    ):
+    ) -> None:
         self.funcname_node = funcname_node
         self.funcbody_node = funcbody_node
 
@@ -464,7 +464,7 @@ class LocalFuncAssignNode(AstNode, Parsable):
 
     def __init__(
         self, name_node: data_nodes.NameNode, funcbody_node: function_nodes.FuncBodyNode
-    ):
+    ) -> None:
         self.name_node = name_node
         self.funcbody_node = funcbody_node
 
@@ -496,7 +496,7 @@ class LocalFuncAssignNode(AstNode, Parsable):
         )
 
 
-# =============================  branch nodes =================================
+# =============================  branch node ==================================
 
 
 class IfNode(AstNode, Parsable):
@@ -507,7 +507,7 @@ class IfNode(AstNode, Parsable):
         block_exp: tuple[BlockNode, data_nodes.ExpNode],
         block_exp_list: list[tuple[BlockNode, data_nodes.ExpNode]],
         else_block_node: BlockNode | None,
-    ):
+    ) -> None:
         self.block_exp = block_exp
         self.block_exp_list = block_exp_list
         self.else_block_node = else_block_node
@@ -521,7 +521,14 @@ class IfNode(AstNode, Parsable):
 
     def parse_tree_descendants(self):
         return chain(
-            ("end", *(() if self.else_block_node is None else (self.else_block_node,))),
+            (
+                "end",
+                *(
+                    ()
+                    if self.else_block_node is None
+                    else (self.else_block_node, "else")
+                ),
+            ),
             chain.from_iterable(
                 zip(
                     chain.from_iterable(reversed(self.block_exp_list)),
@@ -580,7 +587,7 @@ class EmptyNode(AstNode, Parsable):
 class RetNode(AstNode, Parsable):
     __slots__ = ("exp_node_list",)
 
-    def __init__(self, exp_node_list: list[data_nodes.ExpNode]):
+    def __init__(self, exp_node_list: list[data_nodes.ExpNode]) -> None:
         self.exp_node_list = exp_node_list
 
     def descendants(self):
@@ -613,7 +620,7 @@ class BlockNode(AstNode, Parsable):
     # RetNode if it exists should be the last element of statement list
     __slots__ = ("statement_node_list",)
 
-    def __init__(self, statement_node_list: list[AstNode]):
+    def __init__(self, statement_node_list: list[AstNode]) -> None:
         self.statement_node_list = statement_node_list
 
     def descendants(self):
@@ -665,8 +672,8 @@ class BlockNode(AstNode, Parsable):
                     statement_node_list.append(parser.parse_parsable(RetNode))
                     break
 
-                case P:
-                    statement_node_list.append(parser.parse_parsable(P))
+                case p:
+                    statement_node_list.append(parser.parse_parsable(p))
 
         return cls(statement_node_list)
 

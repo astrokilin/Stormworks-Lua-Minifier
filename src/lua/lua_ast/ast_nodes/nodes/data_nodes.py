@@ -22,7 +22,7 @@ from lua.lua_ast.runtime_routines import iter_sep
 class NameNode(DataNode, ParsableSkipable):
     __slots__ = ("name",)
 
-    def __init__(self, name: str):
+    def __init__(self, name: str) -> None:
         self.name = name
 
     def parse_tree_descendants(self):
@@ -66,7 +66,7 @@ class VarargNode(DataNode, Parsable):
 class ConstNode(DataNode, Parsable):
     __slots__ = "value", "__d_type"
 
-    def __init__(self, value: str, data_type: DataNode.DataTypes):
+    def __init__(self, value: str, data_type: DataNode.DataTypes) -> None:
         self.value = value
         self.__d_type = data_type
 
@@ -74,7 +74,7 @@ class ConstNode(DataNode, Parsable):
         return iter((self.value,))
 
     def __repr__(self):
-        return super().__repr__() + f" value: {self.value}"
+        return repr(super()) + f" value: {self.value}"
 
     @property
     def data_type(self):
@@ -114,7 +114,7 @@ class ConstNode(DataNode, Parsable):
 class TableConstrNode(DataNode, ParsableSkipable):
     __slots__ = ("field_node_list",)
 
-    def __init__(self, field_node_list: list[FieldNode]):
+    def __init__(self, field_node_list: list[FieldNode]) -> None:
         self.field_node_list = field_node_list
 
     def descendants(self):
@@ -165,7 +165,7 @@ class PrefExpNode(DataNode, ParsableSkipable):
 
     def __init__(
         self, var_node: NameNode | ExpNode, extractor_node_list: list[AstNode]
-    ):
+    ) -> None:
         self.var_node = var_node
         self.extractor_node_list = extractor_node_list
 
@@ -176,8 +176,7 @@ class PrefExpNode(DataNode, ParsableSkipable):
         if isinstance(self.var_node, ExpNode):
             return chain(reversed(self.extractor_node_list), (")", self.var_node, "("))
 
-        else:
-            return chain(reversed(self.extractor_node_list), (self.var_node,))
+        return chain(reversed(self.extractor_node_list), (self.var_node,))
 
     _D_T_EXTRACTORS = TokenDispatchTable.dispatch_types(
         extractor_nodes.TableGetterNode,
@@ -203,11 +202,13 @@ class PrefExpNode(DataNode, ParsableSkipable):
 
         return cls(var, extractor_node_list)
 
-    # return index of first token of last extractor
-    # if no extractors will return index of first token
-    # before Name | ( exp ) rule
     @classmethod
     def skip_to_last_ext(cls, stream: BufferedTokenStream, index: int = 0) -> int:
+        """return index of first token of last extractor
+        if no extractors will return index of first token
+        before Name | ( exp ) rule
+        """
+
         new_index = NameNode.parsable_skip_in_stream(stream, index)
 
         if new_index == index:
@@ -276,7 +277,7 @@ class FuncDefNode(DataNode, Parsable):
     def __init__(
         self,
         funcbody_node: function_nodes.FuncBodyNode,
-    ):
+    ) -> None:
         self.funcbody_node = funcbody_node
 
     def descendants(self):
@@ -340,7 +341,7 @@ def _stack_form_binops(
 class ExpNode(DataNode, Parsable):
     __slots__ = ("data_node",)
 
-    def __init__(self, data_node: DataNode | OperationNode):
+    def __init__(self, data_node: DataNode | OperationNode) -> None:
         self.data_node = data_node
 
     def descendants(self):
@@ -386,7 +387,9 @@ class ExpNode(DataNode, Parsable):
 class FieldNode(DataNode, Parsable):
     __slots__ = "index_node", "exp_node"
 
-    def __init__(self, index_node: ExpNode | NameNode | None, exp_node: ExpNode):
+    def __init__(
+        self, index_node: ExpNode | NameNode | None, exp_node: ExpNode
+    ) -> None:
         self.index_node = index_node
         self.exp_node = exp_node
 

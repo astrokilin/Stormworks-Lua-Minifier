@@ -1,4 +1,10 @@
 class UnexpectedSymbolError(Exception):
+    """represents error during lexical analysis
+    public fields:
+        err_content -- term that caused an error
+        err_file_offset -- error offset in file
+    """
+
     def __init__(
         self,
         err_content: str,
@@ -12,6 +18,12 @@ class UnexpectedSymbolError(Exception):
 
 
 class WrongTokenError(Exception):
+    """represents error during syntax analysis
+    public fields:
+        err_content -- term that caused an error
+        err_file_offset -- error offset in file
+    """
+
     def __init__(
         self,
         err_content: str,

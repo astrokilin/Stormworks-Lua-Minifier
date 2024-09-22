@@ -41,7 +41,7 @@ class BinOpNode(OperationNode):
         left_operand_node: DataNode | None = None,
         right_operand_node: DataNode | None = None,
         **kwargs,
-    ):
+    ) -> None:
         super().__init__(**kwargs)
         self.left_operand_node = left_operand_node
         self.right_operand_node = right_operand_node
@@ -62,7 +62,7 @@ class UnOpNode(OperationNode):
 
     __slots__ = ("right_operand_node",)
 
-    def __init__(self, right_operand_node: DataNode | None = None, **kwargs):
+    def __init__(self, right_operand_node: DataNode | None = None, **kwargs) -> None:
         super().__init__(**kwargs)
         self.right_operand_node = right_operand_node
 
