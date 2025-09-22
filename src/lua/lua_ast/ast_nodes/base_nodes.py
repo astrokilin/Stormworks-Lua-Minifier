@@ -56,6 +56,7 @@ class DataNode(AstNode):
 
     class DataTypes(Enum):
         """enum for all lua types"""
+
         NIL = auto()
         BOOLEAN = auto()
         FUNCTION = auto()

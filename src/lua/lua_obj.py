@@ -12,10 +12,7 @@ from lua.analysis.scope_graph import NamesStat
 class LuaObject:
     """represents lua code file"""
 
-    def __init__(self, code_file: TextIO) -> None:
-        self.code_file = code_file
-        code = code_file.read()
-
+    def __init__(self, code: str) -> None:
         try:
             self.ast_top_block: BlockNode = LuaParser(code).parse_parsable(
                 BlockNode,
@@ -28,7 +25,7 @@ class LuaObject:
             row_num = e.err_file_offset - code[: e.err_file_offset].rfind("\n")
             line = code.split("\n")[line_num - 1]
             raise ParsingError(
-                code_file.name, (line_num, row_num, len(e.err_content)), line, str(e)
+                (line_num, row_num, len(e.err_content)), line, str(e)
             ) from e
 
     def __str__(self):
@@ -40,10 +37,10 @@ class LuaObject:
         st = NamesStat.from_lua_ast(self.ast_top_block)
         st.optimize_names()
 
-    def text(self):
+    def text(self) -> str:
         """converts lua abstract syntax tree to short text"""
 
-        print(*LuaLexer.concat(self.ast_top_block.terminals()), sep="")
+        return "".join(LuaLexer.concat(self.ast_top_block.terminals()))
 
     def show_ast(self):
         """prints lua abstract syntax tree, used mostly for debug reasons"""
