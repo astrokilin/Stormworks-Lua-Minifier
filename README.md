@@ -25,38 +25,37 @@ No additional libraries or packages are required.
 You have two options to run the app on Windows:
 
 1. Using Python directly  
-   - If Python 3.11+ is installed, simply double-click `src/main.py` in downloaded source, or run:
-
-   python src\main.py
+   - If Python 3.11+ is installed, simply double-click `src/main.py` in downloaded source.
 
 2. Using the pre-built executable  
    - Download the latest `.exe` from the Releases page.  
-   - Double-click the `.exe` to launch the app — no Python installation required.
 
 ---
 
 ### Linux
 
 1. Ensure Python 3.11+ is installed:
-
-python3 --version
+	```bash
+	python3 --version
+	```
 
 2. Clone or download the repository:
-
-git clone https://github.com/USERNAME/REPO.git
-cd REPO
+	```bash
+	git clone https://github.com/astrokilin/Stormworks-Lua-Minifier.git
+	cd Stormworks-Lua-Minifier
+	```
 
 3. Run the app:
-
-python3 src/main.py
-
+	```bash
+	python3 src/main.py
+	```
 Tkinter is usually included in default Python distributions on Linux. No extra dependencies are required.
 
 ---
 
 ## Usage
 
-- Launch the application by running `main.py` or the `.exe` (on Windows).  
+- Launch the application.  
 - Copy your script inside left text box.
 - Press 'Minify'.
 - Copy-paste minified script inside your stormworks microcontroller.

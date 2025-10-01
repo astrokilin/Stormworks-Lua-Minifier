@@ -11,6 +11,7 @@ from lua.lua_ast.parsing import (
 )
 from lua.lua_ast.runtime_routines import iter_sep
 from lua.lua_ast.ast_nodes.base_nodes import AstNode
+from lua.lua_ast.exceptions import WrongTokenError
 
 import lua.lua_ast.ast_nodes.nodes.data_nodes as data_nodes
 import lua.lua_ast.ast_nodes.nodes.extractor_nodes as extractor_nodes
@@ -623,6 +624,9 @@ class BlockNode(AstNode, Parsable):
     def __init__(self, statement_node_list: list[AstNode]) -> None:
         self.statement_node_list = statement_node_list
 
+    def has_return_statement(self) -> bool:
+        return isinstance(self.statement_node_list[-1], RetNode)
+
     def descendants(self):
         return reversed(self.statement_node_list)
 
@@ -668,16 +672,64 @@ class BlockNode(AstNode, Parsable):
                             parser.parse_parsable(possible_candidates[-1])
                         )
 
-                case RetNode():
-                    statement_node_list.append(parser.parse_parsable(RetNode))
-                    break
-
                 case p:
                     statement_node_list.append(parser.parse_parsable(p))
+
+                    if p == RetNode:
+                        break
 
         return cls(statement_node_list)
 
     # since block can be empty we assume that
+    # it can be always extracted from stream
+
+    @classmethod
+    def parsable_presented_in_stream(
+        cls, stream: BufferedTokenStream, index: int = 0
+    ) -> bool:
+        return True
+
+
+class ChunkNode(AstNode, Parsable):
+    __slots__ = ("block_node",)
+
+    def __init__(self, block_node: BlockNode) -> None:
+        self.block_node = block_node
+
+    def descendants(self):
+        return iter((self.block_node,))
+
+    def parse_tree_descendants(self):
+        return iter((self.block_node,))
+
+    @classmethod
+    def parsable_from_parser(cls, parser: LuaParser) -> Self:
+        stream = parser.token_stream
+        main_block: BlockNode = parser.parse_parsable(
+            BlockNode,
+            "start of file",
+            True,
+            "statement",
+        )
+
+        try:
+            token = next(stream)
+
+            # something is left after parsing
+            if token.name != "EOF":
+                raise WrongTokenError(
+                    token.content,
+                    token.pos,
+                    "<EOF>" if main_block.has_return_statement() else "statement",
+                )
+
+        except StopIteration:
+            # no more tokens -> chunk is parsed completely
+            pass
+
+        return cls(main_block)
+
+    # since chunk can be empty we assume that
     # it can be always extracted from stream
 
     @classmethod

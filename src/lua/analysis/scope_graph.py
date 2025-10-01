@@ -31,6 +31,7 @@ from lua.lua_ast import (
     TableGetterNode,
     MethodGetterNode,
     # lua statements
+    ChunkNode,
     BlockNode,
     VarsAssignNode,
     FuncCallNode,
@@ -59,6 +60,7 @@ _RESERVED_GLOBAL_NAMES = {
     "next",
     "tostring",
     "tonumber",
+    "type",
     # stormworks specific
     "async",
     "onTick",
@@ -140,7 +142,7 @@ class _ScopeTreeBuilder:
     def build_tree(self, root: BlockNode) -> _ScopeNode:
         """returns scope tree root node"""
 
-        self._process_block_node(root)
+        self._process_chunk_node(root)
 
         return self.__nodes_stack[0]
 
@@ -272,6 +274,10 @@ class _ScopeTreeBuilder:
             self._process_exp_node(field.exp_node)
 
     # statement processing
+    def _process_chunk_node(self, node: ChunkNode) -> None:
+        """process chunk node"""
+
+        self._process_block_node(node.block_node)
 
     def _process_block_node(self, node: BlockNode) -> None:
         """process block node by processing each statement in it"""

@@ -20,8 +20,10 @@ class UnexpectedSymbolError(Exception):
 class WrongTokenError(Exception):
     """represents error during syntax analysis
     public fields:
-        err_content -- term that caused an error
+        err_content     -- term that caused an error
         err_file_offset -- error offset in file
+        err_name        -- what is expected
+        prev_err_name   -- after what the error has occured
     """
 
     def __init__(

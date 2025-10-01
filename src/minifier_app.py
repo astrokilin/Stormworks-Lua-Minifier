@@ -101,8 +101,8 @@ def run_app():
     cursor_label.grid(row=5, column=0, pady=(10, 0))
 
     # right text box
-    output_text = Text(root, bg="#1a1a1a", fg="#aaaaaa", font=text_font)
-    output_text.grid(row=0, column=2, sticky="nsew", padx=10, pady=10)
+    right_text = Text(root, bg="#1a1a1a", fg="#aaaaaa", font=text_font)
+    right_text.grid(row=0, column=2, sticky="nsew", padx=10, pady=10)
     root.columnconfigure(2, weight=1)
 
     # scrollbar stuff
@@ -115,6 +115,23 @@ def run_app():
     scrollbar.config(
         command=lambda *args: (left_text.yview(*args), line_numbers.yview(*args))
     )
+
+    # textbox ivents
+    def handle_paste(event):
+        widget = event.widget
+        clipboard_text = root.clipboard_get()
+
+        if widget.tag_ranges("sel"):
+            selected = widget.index("sel.first")
+            widget.delete("sel.first", "sel.last")
+            widget.insert(selected, clipboard_text)
+        else:
+            widget.insert("insert", clipboard_text)
+
+        return "break"
+
+    left_text.bind("<<Paste>>", handle_paste)
+    right_text.bind("<<Paste>>", handle_paste)
 
     # actions
     def sync_scroll(*args):
@@ -142,7 +159,7 @@ def run_app():
             l_obj.do_renaming()
             result = l_obj.text()
 
-            output_text.config(fg="#aaaaaa")
+            right_text.config(fg="#aaaaaa")
             orig_len_label.config(text=f"Original length: {len(code)}")
             rev_len_label.config(text=f"Minified length: {len(result)}")
             prop_label.config(
@@ -158,16 +175,16 @@ def run_app():
                 + "\n"
                 + str(e)
             )
-            output_text.config(fg="red")
+            right_text.config(fg="red")
 
-        output_text.delete("1.0", END)
-        output_text.insert(END, result)
+        right_text.delete("1.0", END)
+        right_text.insert(END, result)
         update_cursor()
         update_line_numbers()
 
     def copy_result():
         root.clipboard_clear()
-        root.clipboard_append(output_text.get("1.0", "end-1c"))
+        root.clipboard_append(right_text.get("1.0", "end-1c"))
 
     def increase_font():
         size = text_font.cget("size")
@@ -207,9 +224,16 @@ def run_app():
     menu_bar = Menu(root, bg=APP_MAIN_BG, fg="white", borderwidth=0)
     root.config(menu=menu_bar)
     view_menu = Menu(menu_bar, tearoff=0, bg=APP_MAIN_BG)
+
     view_menu.add_command(label="Zoom In", command=increase_font)
+    view_menu.entryconfig(0, foreground="white")
+
     view_menu.add_command(label="Zoom Out", command=decrease_font)
+    view_menu.entryconfig(1, foreground="white")
+
     view_menu.add_command(label="Normal Size", command=normal_font)
+    view_menu.entryconfig(2, foreground="white")
+
     menu_bar.add_cascade(label="View", menu=view_menu)
 
     # context menu
@@ -229,7 +253,7 @@ def run_app():
         menu.tk_popup(event.x_root, event.y_root)
 
     left_text.bind("<Button-3>", lambda e: show_menu(e, left_text))
-    output_text.bind("<Button-3>", lambda e: show_menu(e, output_text))
+    right_text.bind("<Button-3>", lambda e: show_menu(e, right_text))
 
     # bindings
     left_text.bind("<KeyRelease>", lambda e: (update_line_numbers(), update_cursor()))
