@@ -67,15 +67,8 @@ class DataNode(AstNode):
         VARARG = auto()
         RUNTIME_DEPEND = auto()
 
-    # runtime depend types means that
-    # value and type should be obtained from the runtime
-
-    @property
-    def data_type(self) -> DataNode.DataTypes:
-        return DataNode.DataTypes.RUNTIME_DEPEND
-
     def __repr__(self):
-        return super().__repr__() + f" datatype: {self.data_type}"
+        return super().__repr__()
 
 
 # Descendants of this node represents operations

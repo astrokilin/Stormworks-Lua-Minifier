@@ -4,11 +4,7 @@ from lua.exceptions import ParsingError
 
 from lua.lua_ast.lexer import LuaLexer
 from lua.lua_ast.parsing import LuaParser
-<<<<<<< Updated upstream
-from lua.lua_ast.ast_nodes.nodes.statement_nodes import BlockNode
-=======
 from lua.lua_ast.ast_nodes.nodes.statement_nodes import ChunkNode
->>>>>>> Stashed changes
 from lua.lua_ast.exceptions import UnexpectedSymbolError, WrongTokenError
 from lua.analysis.scope_graph import NamesStat
 
