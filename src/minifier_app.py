@@ -146,6 +146,7 @@ def run_app():
             line_numbers.insert(END, f"{i}\n")
 
         line_numbers.config(state="disabled")
+        sync_scroll()
 
     def update_cursor(event=None):
         line, col = left_text.index(INSERT).split(".")
