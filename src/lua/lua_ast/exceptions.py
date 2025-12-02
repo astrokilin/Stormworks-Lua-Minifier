@@ -1,3 +1,8 @@
+"""
+This module contains exceptions that can occur during building of lua syntax tree
+"""
+
+
 class UnexpectedSymbolError(Exception):
     """represents error during lexical analysis
     public fields:
@@ -35,9 +40,9 @@ class WrongTokenError(Exception):
     ):
         self.err_content = err_content
         self.err_file_offset = err_file_offset
-        self.__explanation = f"{err_name} expected"
+        self.__explanation = f"wrong token: '{err_content}' but {err_name} expected"
         if prev_err_name:
             self.__explanation += f" after {prev_err_name}"
 
     def __str__(self):
-        return f"wrong token: '{self.err_content}' but {self.__explanation}"
+        return self.__explanation

@@ -2,22 +2,22 @@
 This module provides everything connected with lexical structure of lua
 """
 
-import re
-from dataclasses import dataclass
+from re import finditer
 from collections import deque
+from dataclasses import dataclass
 from collections.abc import Iterator
 
 from lua.lua_ast.exceptions import UnexpectedSymbolError
 
 
-@dataclass(eq=True, frozen=True)
+@dataclass(eq=True, frozen=True, slots=True)
 class Token:
     name: str
     content: str
     pos: int
 
 
-@dataclass
+@dataclass(slots=True)
 class TokenPattern:
     name: str
     pattern: str
@@ -25,13 +25,20 @@ class TokenPattern:
 
 
 class BufferedTokenStream:
-    """iterator that returns tokens and supports lookahead for n tokens"""
+    """
+    Iterator that returns tokens and supports lookahead for n tokens
+    Fields:
+        last_pos - position where last extracted token ends
+    """
+
+    __slots__ = "__content", "__iter", "__skip_table", "__buffer", "last_pos"
 
     def __init__(self, txt: str, pattern: str, skip_table: dict[str, bool]) -> None:
         self.__content = txt
-        self.__iter = re.finditer(pattern, self.__content)
+        self.__iter = finditer(pattern, self.__content)
         self.__skip_table = skip_table
         self.__buffer: deque = deque()
+        self.last_pos: int = 0
 
     def __get_token(self) -> Token:
         while True:
@@ -50,9 +57,12 @@ class BufferedTokenStream:
 
     def __next__(self) -> Token:
         if not self.__buffer:
-            return self.__get_token()
+            t = self.__get_token()
+        else:
+            t = self.__buffer.popleft()
 
-        return self.__buffer.popleft()
+        self.last_pos = t.pos + len(t.content)
+        return t
 
     def peek(self, k: int = 0) -> Token:
         """used to lookahead for k symbols
@@ -96,6 +106,8 @@ class BufferedTokenStream:
 
 class LuaLexer:
     """singleton class representing lua lexical rules"""
+
+    __slots__ = "__final_pattern", "__skip_names"
 
     LUA_TOKEN_PATTERNS = (
         TokenPattern("delimeter", r"[\s\n\r]+", ignore=True),

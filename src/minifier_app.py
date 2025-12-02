@@ -156,6 +156,7 @@ def run_app():
         try:
             code = left_text.get("1.0", "end-1c")
             l_obj = LuaObject(code)
+            l_obj.show_ast()
             l_obj.do_renaming()
             result = l_obj.text()
 
@@ -167,14 +168,7 @@ def run_app():
             )
 
         except ParsingError as e:
-            result = (
-                e.err_line
-                + "\n"
-                + re.sub("[^\t ]", " ", e.err_line[: e.file_pos[1] - 1])
-                + "^" * e.file_pos[2]
-                + "\n"
-                + str(e)
-            )
+            result = str(e)
             right_text.config(fg="red")
 
         right_text.delete("1.0", END)
