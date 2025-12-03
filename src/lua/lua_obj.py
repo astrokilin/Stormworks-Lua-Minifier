@@ -1,5 +1,3 @@
-from typing import TextIO
-
 from lua.exceptions import ParsingError
 from lua.err_builder import ErrBuilder
 
@@ -8,7 +6,7 @@ from lua.lua_ast.parsing import LuaParser
 from lua.lua_ast.ast_nodes.nodes.statement_nodes import ChunkNode
 from lua.lua_ast.exceptions import UnexpectedSymbolError, WrongTokenError
 from lua.analysis.scope_graph import NamesStat
-from lua.analysis.control_flow_check import ControlChecker
+from lua.analysis.control_flow_check import StaticChecker
 
 
 class LuaObject:
@@ -25,14 +23,16 @@ class LuaObject:
                 )
             ) from e
 
-        control_flow_errors = ControlChecker(self.ast_chunk).perform_check()
+        control_flow_errors = StaticChecker(
+            self.ast_chunk, parser.positions_map
+        ).check()
 
         if control_flow_errors:
             err_builder = ErrBuilder(code)
             raise ParsingError(
                 "\n\n".join(
-                    err_builder.build_error(*parser.positions_map[id(node)], expl)
-                    for node, expl in control_flow_errors
+                    err_builder.build_error(pos, length, expl)
+                    for pos, length, expl in control_flow_errors
                 )
             )
 

@@ -21,7 +21,6 @@ from lua.lua_ast import (
     DataNode,
     ExpNode,
     TableConstrNode,
-    FieldNode,
     BinOpNode,
     UnOpNode,
     FuncDefNode,
@@ -139,7 +138,7 @@ class _ScopeTreeBuilder:
             _ScopeNode([], {}),
         ]
 
-    def build_tree(self, root: BlockNode) -> _ScopeNode:
+    def build_tree(self, root: ChunkNode) -> _ScopeNode:
         """returns scope tree root node"""
 
         self._process_chunk_node(root)
@@ -398,10 +397,10 @@ class NamesStat:
         self.root_node = root_node
 
     @classmethod
-    def from_lua_ast(cls, block_node: BlockNode) -> Self:
+    def from_lua_ast(cls, node: ChunkNode) -> Self:
         """builds scope graph from top block of lua ast"""
 
-        return cls(_ScopeTreeBuilder().build_tree(block_node))
+        return cls(_ScopeTreeBuilder().build_tree(node))
 
     def optimize_names(self) -> None:
         """perform naming optimization on scope graph"""

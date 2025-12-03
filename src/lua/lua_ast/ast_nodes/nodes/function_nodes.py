@@ -65,7 +65,10 @@ class FuncBodyNode(AstNode, Parsable):
                     data_nodes.VarargNode,
                     next(stream).content,
                     True,
-                    f"{data_nodes.NameNode.PARSABLE_ERROR_NAME} or {data_nodes.VarargNode.PARSABLE_ERROR_NAME}",
+                    (
+                        f"{data_nodes.NameNode.PARSABLE_ERROR_NAME} or"
+                        f"{data_nodes.VarargNode.PARSABLE_ERROR_NAME}"
+                    ),
                 )
                 err_name = data_nodes.VarargNode.PARSABLE_ERROR_NAME
 

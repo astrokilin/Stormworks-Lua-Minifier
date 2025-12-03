@@ -67,12 +67,6 @@ class DataNode(AstNode):
         VARARG = auto()
         RUNTIME_DEPEND = auto()
 
-    def __repr__(self):
-        return super().__repr__()
-
-
-# Descendants of this node represents operations
-
 
 class OperationNode(DataNode, Parsable):
     """descendants of this node represents operations"""

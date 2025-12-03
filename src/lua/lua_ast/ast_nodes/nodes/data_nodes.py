@@ -55,30 +55,23 @@ class VarargNode(DataNode, Parsable):
     def parse_tree_descendants(self):
         return iter(("...",))
 
-    @property
-    def data_type(self):
-        return DataNode.DataTypes.VARARG
-
     PARSABLE_FIRST_TOKEN_CONTENTS = {"..."}
     PARSABLE_ERROR_NAME = "vararg expression"
+    PARSABLE_MARK_POS = True
 
 
 class ConstNode(DataNode, Parsable):
-    __slots__ = "value", "__d_type"
+    __slots__ = "value", "d_type"
 
     def __init__(self, value: str, data_type: DataNode.DataTypes) -> None:
         self.value = value
-        self.__d_type = data_type
+        self.d_type = data_type
 
     def parse_tree_descendants(self):
         return iter((self.value,))
 
     def __repr__(self):
         return repr(super()) + f" value: {self.value}"
-
-    @property
-    def data_type(self):
-        return self.__d_type
 
     _D_T_TYPES = TokenDispatchTable(
         {
@@ -122,10 +115,6 @@ class TableConstrNode(DataNode, ParsableSkipable):
 
     def parse_tree_descendants(self):
         return chain(("}",), iter_sep(reversed(self.field_node_list)), ("{",))
-
-    @property
-    def data_type(self):
-        return DataNode.DataTypes.TABLE
 
     PARSABLE_FIRST_TOKEN_CONTENTS: set = {"{"}
     PARSABLE_ERROR_NAME = "table constructor"
@@ -290,10 +279,6 @@ class FuncDefNode(DataNode, Parsable):
                 "function",
             )
         )
-
-    @property
-    def data_type(self):
-        return DataNode.DataTypes.FUNCTION
 
     PARSABLE_FIRST_TOKEN_CONTENTS = {"function"}
     PARSABLE_ERROR_NAME = "function definition"

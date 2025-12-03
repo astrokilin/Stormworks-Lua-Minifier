@@ -41,16 +41,19 @@ class ErrBuilder:
         ].split("\n")
         explanation = f"({line_num}, {row_num + 1}): {explanation}"
 
+        l_first = lines[0].rstrip().replace("\t", " ")
+
         if len(lines) > 1:
-            l_first = lines[0].rstrip().replace("\t", " ")
+            l_last = lines[-1].rstrip().replace("\t", " ")
+            last_part_len = (
+                err_length - sum(map(len, lines[:-1])) - len(lines) + row_num + 1
+            )
             return "\n".join(
                 chain(
                     (f" {l_first}\n|{' ' * row_num}{'^' * (len(l_first) - row_num)}",),
-                    (f"|{x.replace('\t', ' ')}" for x in lines[1:-1]),
-                    (
-                        f"|{lines[-1].rstrip().replace('\t', ' ')}\n {'^' * (err_length - sum(map(len, lines[:-1])) - len(lines) + row_num + 1)}\n{explanation}",
-                    ),
+                    ("|" + x.replace("\t", " ") for x in lines[1:-1]),
+                    (f"|{l_last}\n {'^' * last_part_len}\n{explanation}",),
                 )
             )
 
-        return f"{lines[0].rstrip().replace('\t', ' ')}\n{' ' * row_num}{'^' * err_length}\n{explanation}"
+        return f"{l_first}\n{' ' * row_num}{'^' * err_length}\n{explanation}"

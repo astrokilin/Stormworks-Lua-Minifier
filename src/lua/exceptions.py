@@ -1,3 +1,8 @@
+"""
+    This module represents errors during lua parsing
+"""
+
+
 class ParsingError(Exception):
     """represents error during parsing
     fields:

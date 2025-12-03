@@ -118,7 +118,10 @@ class LuaLexer:
         ),
         TokenPattern(
             "keyword",
-            r"(?:false|local|then|break|for|nil|true|do|function|until|else|goto|while|elseif|if|repeat|end|in|return)\b",
+            (
+                r"(?:false|local|then|break|for|nil|true|do|function|until"
+                r"|else|goto|while|elseif|if|repeat|end|in|return)\b"
+            ),
         ),
         TokenPattern("other", r"\.{3}|::|:"),
         TokenPattern("op", r"not|and|or|<<|>>|//|==|~=|<=|>=|\.{2}|[+\-*%\^#&|<>=/~]"),

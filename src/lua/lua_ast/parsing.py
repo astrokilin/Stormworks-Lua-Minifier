@@ -185,7 +185,10 @@ class LuaParser:
         prev_err_name: str,
         err_name: str = "",
     ):
-        """Parse one terminal, if no expected_value recieved from next token contents, raise an exception"""
+        """
+        Parse one terminal, if no expected_value recieved from
+        next token contents, raise an exception
+        """
 
         if (t := next(self.token_stream)).content != expected_value:
             raise WrongTokenError(
@@ -202,7 +205,10 @@ class LuaParser:
         greedy: bool = False,
         err_name: str = "",
     ) -> T:
-        """Parse parsable object, if greedy absence of object in token stream will be treated as error"""
+        """
+        Parse parsable object, if greedy absence of object
+        in token stream will be treated as error
+        """
 
         stream = self.token_stream
 

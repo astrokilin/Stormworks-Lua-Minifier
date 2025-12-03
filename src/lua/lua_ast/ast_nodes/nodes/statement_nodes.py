@@ -53,6 +53,7 @@ class LabelNode(AstNode, Parsable):
 
     PARSABLE_FIRST_TOKEN_CONTENTS = {"::"}
     PARSABLE_ERROR_NAME = "label"
+    PARSABLE_MARK_POS = True
 
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:

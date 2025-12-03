@@ -1,4 +1,3 @@
-import re
 from tkinter import (
     Tk,
     Frame,
@@ -10,7 +9,6 @@ from tkinter import (
     Menu,
     Scrollbar,
     font,
-    Menubutton,
 )
 
 from lua import LuaObject, ParsingError
