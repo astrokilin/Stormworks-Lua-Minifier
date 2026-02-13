@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from functools import singledispatchmethod
 
 from lua.lua_ast import (
-    AstNode,
+    AstNodeParsedT,
     # statement nodes
     ChunkNode,
     BlockNode,
@@ -59,13 +59,12 @@ class StaticChecker:
         "__outside_vararg_func",
     )
 
-    def __init__(self, root_node: ChunkNode, positions_map: dict[int, tuple[int, int]]):
+    def __init__(self, root_node: ChunkNode):
         self.__block_stack: list[BlockInfo] = []
         self.__block_traverse_stack: list[tuple[BlockNode, bool]] = [
             (root_node.block_node, False)
         ]
         self.__err_nodes: list[tuple[int, int, str]] = []
-        self.__pos_map = positions_map
         self.__outside_vararg_func: bool = True
 
     def check(self) -> list[tuple[int, int, str]]:
@@ -78,8 +77,8 @@ class StaticChecker:
         self.__err_nodes.sort()
         return self.__err_nodes
 
-    def _add_error(self, node: AstNode, s: str):
-        self.__err_nodes.append((*self.__pos_map[id(node)], s))
+    def _add_error(self, node: AstNodeParsedT, s: str):
+        self.__err_nodes.append((node.index, node.length, s))
 
     def _process_block_node(self, node: BlockNode, from_loop: bool):
         labels: dict[str, int] = {}
@@ -107,7 +106,7 @@ class StaticChecker:
         self.__block_stack.pop()
 
     @singledispatchmethod
-    def _processs_node(self, arg: AstNode) -> None:
+    def _processs_node(self, arg: AstNodeParsedT) -> None:
         """Process statement node according to its type"""
 
     # extractors

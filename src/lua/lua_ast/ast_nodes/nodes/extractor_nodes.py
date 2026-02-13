@@ -6,16 +6,15 @@ from lua.lua_ast.lexer import BufferedTokenStream
 from lua.lua_ast.parsing import (
     parsable_starts_with,
     TokenDispatchTable,
-    ParsableSkipable,
     LuaParser,
 )
 from lua.lua_ast.runtime_routines import iter_sep
-from lua.lua_ast.ast_nodes.base_nodes import AstNode
+from lua.lua_ast.ast_nodes.base_nodes import AstNodeParsableSkipable
 
 import lua.lua_ast.ast_nodes.nodes.data_nodes as data_nodes
 
 
-class TableGetterNode(AstNode, ParsableSkipable):
+class TableGetterNode(AstNodeParsableSkipable):
     __slots__ = ("field_node",)
 
     def __init__(self, field_node: data_nodes.NameNode | data_nodes.ExpNode) -> None:
@@ -56,7 +55,7 @@ class TableGetterNode(AstNode, ParsableSkipable):
         return stream.peek_matching_parenthesis("[", "]", index)
 
 
-class MethodGetterNode(AstNode, ParsableSkipable):
+class MethodGetterNode(AstNodeParsableSkipable):
     __slots__ = "name_node", "funcgetter_node"
 
     def __init__(
@@ -98,7 +97,7 @@ class MethodGetterNode(AstNode, ParsableSkipable):
 
 
 @parsable_starts_with(data_nodes.TableConstrNode)
-class FuncGetterNode(AstNode, ParsableSkipable):
+class FuncGetterNode(AstNodeParsableSkipable):
     __slots__ = ("arg",)
 
     def __init__(

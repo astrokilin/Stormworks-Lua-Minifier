@@ -4,13 +4,12 @@ from itertools import chain, cycle
 
 from lua.lua_ast.lexer import BufferedTokenStream
 from lua.lua_ast.parsing import (
-    Parsable,
     parsable_starts_with,
     TokenDispatchTable,
     LuaParser,
 )
 from lua.lua_ast.runtime_routines import iter_sep
-from lua.lua_ast.ast_nodes.base_nodes import AstNode
+from lua.lua_ast.ast_nodes.base_nodes import AstNodeParsable
 from lua.lua_ast.exceptions import WrongTokenError
 
 import lua.lua_ast.ast_nodes.nodes.data_nodes as data_nodes
@@ -39,7 +38,7 @@ class FuncCallNode(data_nodes.PrefExpNode):
         )
 
 
-class LabelNode(AstNode, Parsable):
+class LabelNode(AstNodeParsable):
     __slots__ = ("name_node",)
 
     def __init__(self, name_node: data_nodes.NameNode) -> None:
@@ -53,7 +52,6 @@ class LabelNode(AstNode, Parsable):
 
     PARSABLE_FIRST_TOKEN_CONTENTS = {"::"}
     PARSABLE_ERROR_NAME = "label"
-    PARSABLE_MARK_POS = True
 
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
@@ -63,17 +61,16 @@ class LabelNode(AstNode, Parsable):
         return cls(name_node)
 
 
-class BreakNode(AstNode, Parsable):
+class BreakNode(AstNodeParsable):
     __slots__ = ()
 
     def parse_tree_descendants(self):
         return iter(("break",))
 
     PARSABLE_FIRST_TOKEN_CONTENTS = {"break"}
-    PARSABLE_MARK_POS = True
 
 
-class GotoNode(AstNode, Parsable):
+class GotoNode(AstNodeParsable):
     __slots__ = ("name_node",)
 
     def __init__(self, name_node: data_nodes.NameNode) -> None:
@@ -87,7 +84,6 @@ class GotoNode(AstNode, Parsable):
 
     PARSABLE_FIRST_TOKEN_CONTENTS = {"goto"}
     PARSABLE_ERROR_NAME = "goto statement"
-    PARSABLE_MARK_POS = True
 
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
@@ -98,7 +94,7 @@ class GotoNode(AstNode, Parsable):
         )
 
 
-class DoBlockNode(AstNode, Parsable):
+class DoBlockNode(AstNodeParsable):
     __slots__ = ("block_node",)
 
     def __init__(self, block_node: BlockNode) -> None:
@@ -124,7 +120,7 @@ class DoBlockNode(AstNode, Parsable):
 # =============================== loop nodes =================================
 
 
-class WhileLoopNode(AstNode, Parsable):
+class WhileLoopNode(AstNodeParsable):
     __slots__ = "exp_node", "block_node"
 
     def __init__(self, exp_node: data_nodes.ExpNode, block_node: BlockNode) -> None:
@@ -149,7 +145,7 @@ class WhileLoopNode(AstNode, Parsable):
         return cls(exp_node, block_node)
 
 
-class RepeatLoopNode(AstNode, Parsable):
+class RepeatLoopNode(AstNodeParsable):
     __slots__ = "exp_node", "block_node"
 
     def __init__(self, exp_node: data_nodes.ExpNode, block_node: BlockNode) -> None:
@@ -174,7 +170,7 @@ class RepeatLoopNode(AstNode, Parsable):
         return cls(exp_node, block_node)
 
 
-class ForLoopNode(AstNode, Parsable):
+class ForLoopNode(AstNodeParsable):
     __slots__ = (
         "name_node",
         "assign_exp_node",
@@ -249,7 +245,7 @@ class ForLoopNode(AstNode, Parsable):
         )
 
 
-class ForIterLoopNode(AstNode, Parsable):
+class ForIterLoopNode(AstNodeParsable):
     __slots__ = "name_node_list", "exp_node_list", "block_node"
 
     def __init__(
@@ -318,7 +314,7 @@ class ForIterLoopNode(AstNode, Parsable):
 
 
 @parsable_starts_with(data_nodes.VarNode)
-class VarsAssignNode(AstNode, Parsable):
+class VarsAssignNode(AstNodeParsable):
     __slots__ = "var_node_list", "exp_node_list"
 
     def __init__(
@@ -365,7 +361,7 @@ class VarsAssignNode(AstNode, Parsable):
         return data_nodes.VarNode.parsable_presented_in_stream(stream, index)
 
 
-class LocalVarsAssignNode(AstNode, Parsable):
+class LocalVarsAssignNode(AstNodeParsable):
     __slots__ = "name_node_list", "exp_node_list"
 
     def __init__(
@@ -432,7 +428,7 @@ class LocalVarsAssignNode(AstNode, Parsable):
 import lua.lua_ast.ast_nodes.nodes.function_nodes as function_nodes
 
 
-class FuncAssignNode(AstNode, Parsable):
+class FuncAssignNode(AstNodeParsable):
     __slots__ = "funcname_node", "funcbody_node"
 
     def __init__(
@@ -461,7 +457,7 @@ class FuncAssignNode(AstNode, Parsable):
         return cls(funcname_node, funcbody_node)
 
 
-class LocalFuncAssignNode(AstNode, Parsable):
+class LocalFuncAssignNode(AstNodeParsable):
     __slots__ = "name_node", "funcbody_node"
 
     def __init__(
@@ -501,7 +497,7 @@ class LocalFuncAssignNode(AstNode, Parsable):
 # =============================  branch node ==================================
 
 
-class IfNode(AstNode, Parsable):
+class IfNode(AstNodeParsable):
     __slots__ = "block_exp", "block_exp_list", "else_block_node"
 
     def __init__(
@@ -576,7 +572,7 @@ class IfNode(AstNode, Parsable):
 # ==============================  other nodes =================================
 
 
-class EmptyNode(AstNode, Parsable):
+class EmptyNode(AstNodeParsable):
     __slots__ = ()
 
     def parse_tree_descendants(self):
@@ -586,7 +582,7 @@ class EmptyNode(AstNode, Parsable):
     PARSABLE_ERROR_NAME = "';' statement"
 
 
-class RetNode(AstNode, Parsable):
+class RetNode(AstNodeParsable):
     __slots__ = ("exp_node_list",)
 
     def __init__(self, exp_node_list: list[data_nodes.ExpNode]) -> None:
@@ -618,11 +614,11 @@ class RetNode(AstNode, Parsable):
         return cls(exp_node_list)
 
 
-class BlockNode(AstNode, Parsable):
+class BlockNode(AstNodeParsable):
     # RetNode if it exists should be the last element of statement list
     __slots__ = ("statement_node_list",)
 
-    def __init__(self, statement_node_list: list[AstNode]) -> None:
+    def __init__(self, statement_node_list: list[AstNodeParsable]) -> None:
         self.statement_node_list = statement_node_list
 
     def has_return_statement(self) -> bool:
@@ -656,7 +652,7 @@ class BlockNode(AstNode, Parsable):
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
         stream = parser.token_stream
-        statement_node_list: list[AstNode] = []
+        statement_node_list: list[AstNodeParsable] = []
 
         while True:
             match cls._D_T_STATEMENTS[stream.peek()]:
@@ -691,7 +687,7 @@ class BlockNode(AstNode, Parsable):
         return True
 
 
-class ChunkNode(AstNode, Parsable):
+class ChunkNode(AstNodeParsable):
     __slots__ = ("block_node",)
 
     def __init__(self, block_node: BlockNode) -> None:

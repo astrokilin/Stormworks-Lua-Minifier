@@ -4,11 +4,10 @@ This module contains all parent classes for lua abstact syntax tree
 
 from __future__ import annotations
 from collections.abc import Generator, Iterator
-from enum import Enum, auto
 from typing import TypeVar
 
 from lua.graph import TreeNode
-from lua.lua_ast.parsing import Parsable
+from lua.lua_ast.parsing import Parsable, ParsableSkipable
 
 
 class AstNode(TreeNode):
@@ -46,29 +45,22 @@ class AstNode(TreeNode):
         return " ".join(self.terminals())
 
 
-AstNodeType = TypeVar("AstNodeType", bound=AstNode, covariant=True)
-
-
-class DataNode(AstNode):
-    """descendant of this node represents data"""
+class AstNodeParsable(AstNode, Parsable):
+    """ast node derived from text string"""
 
     __slots__ = ()
 
-    class DataTypes(Enum):
-        """enum for all lua types"""
 
-        NIL = auto()
-        BOOLEAN = auto()
-        FUNCTION = auto()
-        TABLE = auto()
-        STRING = auto()
-        NUMBER_FLOAT = auto()
-        NUMBER_INT = auto()
-        VARARG = auto()
-        RUNTIME_DEPEND = auto()
+class AstNodeParsableSkipable(AstNode, ParsableSkipable):
+    """ast node derived from text string, parser can lookahead it"""
+
+    __slots__ = ()
 
 
-class OperationNode(DataNode, Parsable):
+AstNodeParsedT = AstNodeParsable | AstNodeParsableSkipable
+
+
+class OperationNode(AstNodeParsable):
     """descendants of this node represents operations"""
 
     _OPERATION_PRECEDENCE: dict[str, int] = {}

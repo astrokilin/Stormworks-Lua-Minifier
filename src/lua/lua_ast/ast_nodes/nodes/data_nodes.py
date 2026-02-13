@@ -1,17 +1,16 @@
 from __future__ import annotations
 from typing import Self
 from itertools import chain
+from enum import Enum, auto
 
 from lua.lua_ast.lexer import BufferedTokenStream
 from lua.lua_ast.exceptions import WrongTokenError
 from lua.lua_ast.ast_nodes.base_nodes import (
-    AstNode,
-    DataNode,
+    AstNodeParsable,
+    AstNodeParsableSkipable,
     OperationNode,
 )
 from lua.lua_ast.parsing import (
-    Parsable,
-    ParsableSkipable,
     parsable_starts_with,
     LuaParser,
     TokenDispatchTable,
@@ -19,7 +18,7 @@ from lua.lua_ast.parsing import (
 from lua.lua_ast.runtime_routines import iter_sep
 
 
-class NameNode(DataNode, ParsableSkipable):
+class NameNode(AstNodeParsableSkipable):
     __slots__ = ("name",)
 
     def __init__(self, name: str) -> None:
@@ -49,7 +48,7 @@ class NameNode(DataNode, ParsableSkipable):
         )
 
 
-class VarargNode(DataNode, Parsable):
+class VarargNode(AstNodeParsable):
     __slots__ = ()
 
     def parse_tree_descendants(self):
@@ -57,13 +56,21 @@ class VarargNode(DataNode, Parsable):
 
     PARSABLE_FIRST_TOKEN_CONTENTS = {"..."}
     PARSABLE_ERROR_NAME = "vararg expression"
-    PARSABLE_MARK_POS = True
 
 
-class ConstNode(DataNode, Parsable):
+class ConstNode(AstNodeParsable):
     __slots__ = "value", "d_type"
 
-    def __init__(self, value: str, data_type: DataNode.DataTypes) -> None:
+    class ConstDataTypes(Enum):
+        """enum for const lua types"""
+
+        NIL = auto()
+        BOOLEAN = auto()
+        STRING = auto()
+        NUMBER_FLOAT = auto()
+        NUMBER_INT = auto()
+
+    def __init__(self, value: str, data_type: ConstDataTypes) -> None:
         self.value = value
         self.d_type = data_type
 
@@ -75,13 +82,13 @@ class ConstNode(DataNode, Parsable):
 
     _D_T_TYPES = TokenDispatchTable(
         {
-            "nil": DataNode.DataTypes.NIL,
-            "true": DataNode.DataTypes.BOOLEAN,
-            "false": DataNode.DataTypes.BOOLEAN,
+            "nil": ConstDataTypes.NIL,
+            "true": ConstDataTypes.BOOLEAN,
+            "false": ConstDataTypes.BOOLEAN,
         },
         {
-            "string": DataNode.DataTypes.STRING,
-            "numeral": DataNode.DataTypes.NUMBER_INT,
+            "string": ConstDataTypes.STRING,
+            "numeral": ConstDataTypes.NUMBER_INT,
         },
     )
 
@@ -92,19 +99,19 @@ class ConstNode(DataNode, Parsable):
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
         t = next(parser.token_stream)
-        d_type: DataNode.DataTypes = cls._D_T_TYPES[t]  # type: ignore
+        d_type: ConstNode.ConstDataTypes = cls._D_T_TYPES[t]  # type: ignore
 
         # float check
-        if d_type == DataNode.DataTypes.NUMBER_INT:
+        if d_type == ConstNode.ConstDataTypes.NUMBER_INT:
             for lit in t.content:
                 if lit in {".", "p", "P", "e", "E"}:
-                    d_type = DataNode.DataTypes.NUMBER_FLOAT
+                    d_type = ConstNode.ConstDataTypes.NUMBER_FLOAT
                     break
 
         return cls(t.content, d_type)
 
 
-class TableConstrNode(DataNode, ParsableSkipable):
+class TableConstrNode(AstNodeParsableSkipable):
     __slots__ = ("field_node_list",)
 
     def __init__(self, field_node_list: list[FieldNode]) -> None:
@@ -149,11 +156,17 @@ import lua.lua_ast.ast_nodes.nodes.extractor_nodes as extractor_nodes
 
 
 @parsable_starts_with(NameNode)
-class PrefExpNode(DataNode, ParsableSkipable):
+class PrefExpNode(AstNodeParsableSkipable):
     __slots__ = "var_node", "extractor_node_list"
 
     def __init__(
-        self, var_node: NameNode | ExpNode, extractor_node_list: list[AstNode]
+        self,
+        var_node: NameNode | ExpNode,
+        extractor_node_list: list[
+            extractor_nodes.TableGetterNode
+            | extractor_nodes.MethodGetterNode
+            | extractor_nodes.FuncGetterNode
+        ],
     ) -> None:
         self.var_node = var_node
         self.extractor_node_list = extractor_node_list
@@ -237,7 +250,7 @@ class PrefExpNode(DataNode, ParsableSkipable):
 
 # var node is just PrefExpNode which ends with table extractor or
 # PrefExpNode with var = NameNode and no extractors
-class VarNode(PrefExpNode, Parsable):
+class VarNode(PrefExpNode):
     __slots__ = ()
 
     PARSABLE_ERROR_NAME = "variable"
@@ -260,7 +273,7 @@ class VarNode(PrefExpNode, Parsable):
 import lua.lua_ast.ast_nodes.nodes.function_nodes as function_nodes
 
 
-class FuncDefNode(DataNode, Parsable):
+class FuncDefNode(AstNodeParsable):
     __slots__ = ("funcbody_node",)
 
     def __init__(
@@ -323,10 +336,18 @@ def _stack_form_binops(
     TableConstrNode,
     operation_nodes.UnOpNode,
 )
-class ExpNode(DataNode, Parsable):
+class ExpNode(AstNodeParsable):
     __slots__ = ("data_node",)
 
-    def __init__(self, data_node: DataNode | OperationNode) -> None:
+    def __init__(
+        self,
+        data_node: ConstNode
+        | VarargNode
+        | FuncDefNode
+        | PrefExpNode
+        | TableConstrNode
+        | OperationNode,
+    ) -> None:
         self.data_node = data_node
 
     def descendants(self):
@@ -344,7 +365,14 @@ class ExpNode(DataNode, Parsable):
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
         stream = parser.token_stream
-        exp_stack: list[DataNode | OperationNode] = []
+        exp_stack: list[
+            ConstNode
+            | VarargNode
+            | FuncDefNode
+            | PrefExpNode
+            | TableConstrNode
+            | OperationNode
+        ] = []
 
         while True:
             while operation_nodes.UnOpNode.parsable_presented_in_stream(stream):
@@ -369,7 +397,7 @@ class ExpNode(DataNode, Parsable):
 
 
 @parsable_starts_with(ExpNode, NameNode)
-class FieldNode(DataNode, Parsable):
+class FieldNode(AstNodeParsable):
     __slots__ = "index_node", "exp_node"
 
     def __init__(
@@ -415,3 +443,8 @@ class FieldNode(DataNode, Parsable):
         err_name = "=" if index_node is not None else ""
 
         return cls(index_node, parser.parse_parsable(ExpNode, err_name, True))
+
+
+DataNodeT = (
+    ConstNode | VarargNode | FuncDefNode | PrefExpNode | TableConstrNode | OperationNode
+)

@@ -13,12 +13,12 @@ from typing import Self
 
 from lua.graph import TreeNode
 from lua.lua_ast import (
-    AstNode,
+    AstNodeParsedT,
     NameNode,
     # functions stuff
     FuncBodyNode,
     # data nodes
-    DataNode,
+    DataNodeT,
     ExpNode,
     TableConstrNode,
     BinOpNode,
@@ -226,7 +226,7 @@ class _ScopeTreeBuilder:
 
     # expression processing
     @singledispatchmethod
-    def _process_exp_subtree(self, arg: DataNode) -> None:
+    def _process_exp_subtree(self, arg: DataNodeT) -> None:
         """process data nodes in expression tree to find all used variable names"""
 
     @_process_exp_subtree.register(PrefExpNode)
@@ -285,7 +285,7 @@ class _ScopeTreeBuilder:
             self._process_statement_node(statement)
 
     @singledispatchmethod
-    def _process_statement_node(self, arg: AstNode) -> None:
+    def _process_statement_node(self, arg: AstNodeParsedT) -> None:
         """process statement node according to its type"""
 
     @_process_statement_node.register(VarsAssignNode)

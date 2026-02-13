@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from lua.lua_ast.ast_nodes.base_nodes import (
-    DataNode,
     OperationNode,
 )
+
+import lua.lua_ast.ast_nodes.nodes.data_nodes as data_nodes
 
 
 class BinOpNode(OperationNode):
@@ -38,8 +39,20 @@ class BinOpNode(OperationNode):
 
     def __init__(
         self,
-        left_operand_node: DataNode | None = None,
-        right_operand_node: DataNode | None = None,
+        left_operand_node: data_nodes.ConstNode
+        | data_nodes.VarargNode
+        | data_nodes.FuncDefNode
+        | data_nodes.PrefExpNode
+        | data_nodes.TableConstrNode
+        | OperationNode
+        | None = None,
+        right_operand_node: data_nodes.ConstNode
+        | data_nodes.VarargNode
+        | data_nodes.FuncDefNode
+        | data_nodes.PrefExpNode
+        | data_nodes.TableConstrNode
+        | OperationNode
+        | None = None,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -62,7 +75,17 @@ class UnOpNode(OperationNode):
 
     __slots__ = ("right_operand_node",)
 
-    def __init__(self, right_operand_node: DataNode | None = None, **kwargs) -> None:
+    def __init__(
+        self,
+        right_operand_node: data_nodes.ConstNode
+        | data_nodes.VarargNode
+        | data_nodes.FuncDefNode
+        | data_nodes.PrefExpNode
+        | data_nodes.TableConstrNode
+        | UnOpNode
+        | None = None,
+        **kwargs,
+    ) -> None:
         super().__init__(**kwargs)
         self.right_operand_node = right_operand_node
 

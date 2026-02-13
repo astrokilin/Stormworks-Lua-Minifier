@@ -24,8 +24,6 @@ class Parsable:
         PARSABLE_FIRST_TOKEN_CONTENTS -- same but token contents
         PARSABLE_ERROR_NAME -- when error occurs during parsing of this
             object this name will be printed in message
-        PARSABLE_MARK_POS -- ask parser to remember position of first token
-            of this object in file
     """
 
     PARSABLE_FIRST_TOKEN_CONTENTS: ParsableFirstTokenType = set()
@@ -33,9 +31,9 @@ class Parsable:
 
     PARSABLE_ERROR_NAME: str = ""
 
-    PARSABLE_MARK_POS: bool = False
-
-    __slots__ = ()
+    __slots__ = "index", "length"
+    index: int
+    length: int
 
     @classmethod
     def parsable_from_parser(cls: type[T], parser: LuaParser) -> T:
@@ -124,7 +122,7 @@ def parsable_starts_with(
 def _dict_add_duplicates(src: dict, keys: ParsableFirstTokenType, value: Any):
     overlap = src.keys() & keys
     for unit in overlap:
-        if type(src[unit]) is list:
+        if isinstance(src[unit], list):
             src[unit].append(value)
 
         else:
@@ -176,8 +174,6 @@ class LuaParser:
 
     def __init__(self, txt: str) -> None:
         self.token_stream: BufferedTokenStream = self.LEXER.create_buffered_stream(txt)
-        # id(node): position in file
-        self.positions_map: dict[int, tuple[int, int]] = {}
 
     def parse_terminal(
         self,
@@ -223,10 +219,8 @@ class LuaParser:
 
         pos_start = stream.peek().pos
         res = parsable_type.parsable_from_parser(self)
-
-        if parsable_type.PARSABLE_MARK_POS:
-            self.positions_map[id(res)] = (pos_start, stream.last_pos - pos_start)
-
+        res.index = pos_start
+        res.length = stream.last_pos - pos_start
         return res
 
     def parse_list(

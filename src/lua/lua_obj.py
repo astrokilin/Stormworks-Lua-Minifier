@@ -23,9 +23,7 @@ class LuaObject:
                 )
             ) from e
 
-        control_flow_errors = StaticChecker(
-            self.ast_chunk, parser.positions_map
-        ).check()
+        control_flow_errors = StaticChecker(self.ast_chunk).check()
 
         if control_flow_errors:
             err_builder = ErrBuilder(code)

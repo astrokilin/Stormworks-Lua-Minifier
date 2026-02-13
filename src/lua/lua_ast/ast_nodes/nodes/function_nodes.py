@@ -3,18 +3,17 @@ from typing import Self
 from itertools import chain
 
 from lua.lua_ast.parsing import (
-    Parsable,
     parsable_starts_with,
     LuaParser,
 )
 from lua.lua_ast.runtime_routines import iter_sep
-from lua.lua_ast.ast_nodes.base_nodes import AstNode
+from lua.lua_ast.ast_nodes.base_nodes import AstNodeParsable
 
 import lua.lua_ast.ast_nodes.nodes.data_nodes as data_nodes
 import lua.lua_ast.ast_nodes.nodes.statement_nodes as statement_nodes
 
 
-class FuncBodyNode(AstNode, Parsable):
+class FuncBodyNode(AstNodeParsable):
     __slots__ = "name_node_list", "vararg_node", "block_node"
 
     def __init__(
@@ -87,7 +86,7 @@ class FuncBodyNode(AstNode, Parsable):
 
 
 @parsable_starts_with(data_nodes.NameNode)
-class FuncNameNode(AstNode, Parsable):
+class FuncNameNode(AstNodeParsable):
     __slots__ = "name_node_list", "method_name_node"
 
     # name_node_list always has at least one name
