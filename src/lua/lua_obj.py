@@ -1,7 +1,7 @@
 from lua.exceptions import ParsingError
+from lua.text_mapper import TextMapper
 from lua.err_builder import ErrBuilder
 
-from lua.lua_ast.lexer import LuaLexer
 from lua.lua_ast.parsing import LuaParser
 from lua.lua_ast.ast_nodes.nodes.statement_nodes import ChunkNode
 from lua.lua_ast.exceptions import UnexpectedSymbolError, WrongTokenError
@@ -43,10 +43,10 @@ class LuaObject:
         st = NamesStat.from_lua_ast(self.ast_chunk)
         st.optimize_names()
 
-    def text(self) -> str:
+    def text(self) -> TextMapper:
         """Converts lua abstract syntax tree to short text"""
 
-        return "".join(LuaLexer.concat(self.ast_chunk.terminals()))
+        return TextMapper(self.ast_chunk)
 
     def show_ast(self):
         """Prints lua abstract syntax tree, used mostly for debug reasons"""

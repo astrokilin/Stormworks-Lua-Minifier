@@ -13,7 +13,7 @@ class ErrBuilder:
 
     def __init__(self, text: str) -> None:
         positions: list[int] = [
-            0,
+            -1,
         ]
 
         for i, ch in enumerate(text):
@@ -32,11 +32,17 @@ class ErrBuilder:
         """
 
         line_num: int = bisect_left(self.__positions, text_offset)
-        line_start_offset: int = self.__positions[line_num - 1] + 1
+        line_start_offset: int = (
+            self.__positions[line_num - 1 if line_num > 0 else 0] + 1
+        )
+
         row_num: int = text_offset - line_start_offset
+        line_end: int = bisect_left(self.__positions, text_offset + err_length)
         lines: list[str] = self.__text[
             line_start_offset : self.__positions[
-                bisect_left(self.__positions, text_offset + err_length)
+                line_end
+                if line_end < len(self.__positions)
+                else len(self.__positions) - 1
             ]
         ].split("\n")
         explanation = f"({line_num}, {row_num + 1}): {explanation}"

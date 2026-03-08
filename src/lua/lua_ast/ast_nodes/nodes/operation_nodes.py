@@ -39,6 +39,9 @@ class BinOpNode(OperationNode):
 
     def __init__(
         self,
+        index: int,
+        length: int,
+        opcode: str,
         left_operand_node: data_nodes.ConstNode
         | data_nodes.VarargNode
         | data_nodes.FuncDefNode
@@ -55,7 +58,7 @@ class BinOpNode(OperationNode):
         | None = None,
         **kwargs,
     ) -> None:
-        super().__init__(**kwargs)
+        super().__init__(index, length, opcode)
         self.left_operand_node = left_operand_node
         self.right_operand_node = right_operand_node
 
@@ -64,7 +67,7 @@ class BinOpNode(OperationNode):
 
     # ExpNode parsing algorithm will always fill left, right operands so we dont listen mypy here
     def parse_tree_descendants(self):
-        return iter((self.right_operand_node, self.opcode, self.left_operand_node))  # type: ignore
+        return iter((self.left_operand_node, self.opcode, self.right_operand_node))  # type: ignore
 
 
 class UnOpNode(OperationNode):
@@ -77,6 +80,9 @@ class UnOpNode(OperationNode):
 
     def __init__(
         self,
+        index: int,
+        length: int,
+        opcode: str,
         right_operand_node: data_nodes.ConstNode
         | data_nodes.VarargNode
         | data_nodes.FuncDefNode
@@ -86,11 +92,11 @@ class UnOpNode(OperationNode):
         | None = None,
         **kwargs,
     ) -> None:
-        super().__init__(**kwargs)
+        super().__init__(index, length, opcode)
         self.right_operand_node = right_operand_node
 
     def descendants(self):
         return iter((self.right_operand_node,))  # type: ignore
 
     def parse_tree_descendants(self):
-        return iter((self.right_operand_node, self.opcode))  # type: ignore
+        return iter((self.opcode, self.right_operand_node))  # type: ignore

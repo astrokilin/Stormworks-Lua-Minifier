@@ -25,6 +25,7 @@ class UnexpectedSymbolError(Exception):
 class WrongTokenError(Exception):
     """represents error during syntax analysis
     public fields:
+        token_name      -- type of token
         err_content     -- term that caused an error
         err_file_offset -- error offset in file
         err_name        -- what is expected
@@ -33,16 +34,26 @@ class WrongTokenError(Exception):
 
     def __init__(
         self,
+        token_name: str,
         err_content: str,
         err_file_offset: int,
         err_name: str,
         prev_err_name: str = "",
     ):
-        self.err_content = err_content
-        self.err_file_offset = err_file_offset
-        self.__explanation = f"wrong token: '{err_content}' but {err_name} expected"
-        if prev_err_name:
-            self.__explanation += f" after {prev_err_name}"
+        self.err_file_offset: int = err_file_offset
+        self.err_content: str
+        self.__explanation: str
+
+        if token_name == "EOF":
+            self.err_content = " "
+            self.__explanation = f"<EOF> reached, but {err_name} expected"
+
+        else:
+            self.err_content = err_content
+            self.__explanation = f"wrong token: '{err_content}' but {err_name} expected"
+
+            if prev_err_name:
+                self.__explanation += f" after {prev_err_name}"
 
     def __str__(self):
         return self.__explanation

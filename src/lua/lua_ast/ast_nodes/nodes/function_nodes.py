@@ -7,21 +7,25 @@ from lua.lua_ast.parsing import (
     LuaParser,
 )
 from lua.lua_ast.runtime_routines import iter_sep
-from lua.lua_ast.ast_nodes.base_nodes import AstNodeParsable
+from lua.lua_ast.parsing import Parsable
+from lua.lua_ast.ast_nodes.base_nodes import AstNode
 
 import lua.lua_ast.ast_nodes.nodes.data_nodes as data_nodes
 import lua.lua_ast.ast_nodes.nodes.statement_nodes as statement_nodes
 
 
-class FuncBodyNode(AstNodeParsable):
+class FuncBodyNode(AstNode, Parsable):
     __slots__ = "name_node_list", "vararg_node", "block_node"
 
     def __init__(
         self,
+        start_index: int,
+        end_index: int,
         name_node_list: list[data_nodes.NameNode],
         vararg_node: data_nodes.VarargNode | None,
         block_node: statement_nodes.BlockNode,
     ) -> None:
+        super().__init__(start_index, end_index)
         self.name_node_list = name_node_list
         self.vararg_node = vararg_node
         self.block_node = block_node
@@ -35,14 +39,14 @@ class FuncBodyNode(AstNodeParsable):
 
     def parse_tree_descendants(self):
         return chain(
-            ("end", self.block_node, ")"),
+            ("(",),
             iter_sep(
                 chain(
+                    self.name_node_list,
                     (self.vararg_node,) if self.vararg_node is not None else (),
-                    reversed(self.name_node_list),
                 )
             ),
-            ("(",),
+            (")", self.block_node, "end"),
         )
 
     PARSABLE_FIRST_TOKEN_CONTENTS = {"("}
@@ -51,6 +55,7 @@ class FuncBodyNode(AstNodeParsable):
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
         stream = parser.token_stream
+        pos_start = stream.peek().pos
         # skip (
         err_name = next(stream).content
         name_node_list: list[data_nodes.NameNode] = []
@@ -82,19 +87,28 @@ class FuncBodyNode(AstNodeParsable):
             (")", statement_nodes.BlockNode, "end"), err_name
         )
 
-        return cls(name_node_list, vararg_node, block_node)
+        return cls(
+            pos_start,
+            stream.last_pos,
+            name_node_list,
+            vararg_node,
+            block_node,
+        )
 
 
 @parsable_starts_with(data_nodes.NameNode)
-class FuncNameNode(AstNodeParsable):
+class FuncNameNode(AstNode, Parsable):
     __slots__ = "name_node_list", "method_name_node"
 
     # name_node_list always has at least one name
     def __init__(
         self,
+        start_index: int,
+        end_index: int,
         name_node_list: list[data_nodes.NameNode],
         method_name_node: data_nodes.NameNode | None,
     ) -> None:
+        super().__init__(start_index, end_index)
         self.name_node_list = name_node_list
         self.method_name_node = method_name_node
 
@@ -105,11 +119,11 @@ class FuncNameNode(AstNodeParsable):
         )
 
     def parse_tree_descendants(self):
-        g = iter_sep(reversed(self.name_node_list), ".")
+        g = iter_sep(iter(self.name_node_list), ".")
         return (
             g
             if self.method_name_node is None
-            else chain((self.method_name_node, ":"), g)
+            else chain(g, (":", self.method_name_node))
         )
 
     PARSABLE_ERROR_NAME = "function name"
@@ -120,10 +134,11 @@ class FuncNameNode(AstNodeParsable):
 
         # parse [':' Name]
         stream = parser.token_stream
+        pos_start = stream.peek().pos
         method_name_node = None
         if stream.peek().content == ":":
             method_name_node = parser.parse_parsable(
                 data_nodes.NameNode, next(stream).content, True
             )
 
-        return cls(name_node_list, method_name_node)
+        return cls(pos_start, stream.last_pos, name_node_list, method_name_node)

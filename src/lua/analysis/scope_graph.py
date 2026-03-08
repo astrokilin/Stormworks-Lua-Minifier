@@ -13,7 +13,7 @@ from typing import Self
 
 from lua.graph import TreeNode
 from lua.lua_ast import (
-    AstNodeParsedT,
+    AstNode,
     NameNode,
     # functions stuff
     FuncBodyNode,
@@ -285,7 +285,7 @@ class _ScopeTreeBuilder:
             self._process_statement_node(statement)
 
     @singledispatchmethod
-    def _process_statement_node(self, arg: AstNodeParsedT) -> None:
+    def _process_statement_node(self, arg: AstNode) -> None:
         """process statement node according to its type"""
 
     @_process_statement_node.register(VarsAssignNode)

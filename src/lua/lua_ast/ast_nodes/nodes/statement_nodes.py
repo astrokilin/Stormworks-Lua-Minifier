@@ -4,13 +4,14 @@ from itertools import chain, cycle
 
 from lua.lua_ast.lexer import BufferedTokenStream
 from lua.lua_ast.parsing import (
+    Parsable,
     parsable_starts_with,
     TokenDispatchTable,
     LuaParser,
 )
 from lua.lua_ast.runtime_routines import iter_sep
-from lua.lua_ast.ast_nodes.base_nodes import AstNodeParsable
 from lua.lua_ast.exceptions import WrongTokenError
+from lua.lua_ast.ast_nodes.base_nodes import AstNode
 
 import lua.lua_ast.ast_nodes.nodes.data_nodes as data_nodes
 import lua.lua_ast.ast_nodes.nodes.extractor_nodes as extractor_nodes
@@ -38,10 +39,13 @@ class FuncCallNode(data_nodes.PrefExpNode):
         )
 
 
-class LabelNode(AstNodeParsable):
+class LabelNode(AstNode, Parsable):
     __slots__ = ("name_node",)
 
-    def __init__(self, name_node: data_nodes.NameNode) -> None:
+    def __init__(
+        self, start_index: int, end_index: int, name_node: data_nodes.NameNode
+    ) -> None:
+        super().__init__(start_index, end_index)
         self.name_node = name_node
 
     def descendants(self):
@@ -55,13 +59,14 @@ class LabelNode(AstNodeParsable):
 
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
+        pos_start = parser.token_stream.peek().pos
         (name_node,) = parser.parse_simple_rule(
             (data_nodes.NameNode, "::"), next(parser.token_stream).content
         )
-        return cls(name_node)
+        return cls(pos_start, parser.token_stream.last_pos, name_node)
 
 
-class BreakNode(AstNodeParsable):
+class BreakNode(AstNode, Parsable):
     __slots__ = ()
 
     def parse_tree_descendants(self):
@@ -69,61 +74,78 @@ class BreakNode(AstNodeParsable):
 
     PARSABLE_FIRST_TOKEN_CONTENTS = {"break"}
 
+    @classmethod
+    def parsable_from_parser(cls, parser: LuaParser) -> Self:
+        t = next(parser.token_stream)
+        return cls(t.pos, parser.token_stream.last_pos)
 
-class GotoNode(AstNodeParsable):
+
+class GotoNode(AstNode, Parsable):
     __slots__ = ("name_node",)
 
-    def __init__(self, name_node: data_nodes.NameNode) -> None:
+    def __init__(
+        self, start_index: int, end_index: int, name_node: data_nodes.NameNode
+    ) -> None:
+        super().__init__(start_index, end_index)
         self.name_node = name_node
 
     def descendants(self):
         return iter((self.name_node,))
 
     def parse_tree_descendants(self):
-        return iter((self.name_node, "goto"))
+        return iter(("goto", self.name_node))
 
     PARSABLE_FIRST_TOKEN_CONTENTS = {"goto"}
     PARSABLE_ERROR_NAME = "goto statement"
 
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
-        return cls(
-            parser.parse_parsable(
-                data_nodes.NameNode, next(parser.token_stream).content, True
-            )
+        pos_start = parser.token_stream.peek().pos
+        node = parser.parse_parsable(
+            data_nodes.NameNode, next(parser.token_stream).content, True
         )
+        return cls(pos_start, parser.token_stream.last_pos, node)
 
 
-class DoBlockNode(AstNodeParsable):
+class DoBlockNode(AstNode, Parsable):
     __slots__ = ("block_node",)
 
-    def __init__(self, block_node: BlockNode) -> None:
+    def __init__(self, start_index: int, end_index: int, block_node: BlockNode) -> None:
+        super().__init__(start_index, end_index)
         self.block_node = block_node
 
     def descendants(self):
         return iter((self.block_node,))
 
     def parse_tree_descendants(self):
-        return iter(("end", self.block_node, "do"))
+        return iter(("do", self.block_node, "end"))
 
     PARSABLE_FIRST_TOKEN_CONTENTS = {"do"}
     PARSABLE_ERROR_NAME = "do statement"
 
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
+        pos_start = parser.token_stream.peek().pos
         (block_node,) = parser.parse_simple_rule(
             (BlockNode, "end"), next(parser.token_stream).content
         )
-        return cls(block_node)
+        return cls(pos_start, parser.token_stream.last_pos, block_node)
 
 
 # =============================== loop nodes =================================
 
 
-class WhileLoopNode(AstNodeParsable):
+class WhileLoopNode(AstNode, Parsable):
     __slots__ = "exp_node", "block_node"
 
-    def __init__(self, exp_node: data_nodes.ExpNode, block_node: BlockNode) -> None:
+    def __init__(
+        self,
+        start_index: int,
+        end_index: int,
+        exp_node: data_nodes.ExpNode,
+        block_node: BlockNode,
+    ) -> None:
+        super().__init__(start_index, end_index)
         self.exp_node = exp_node
         self.block_node = block_node
 
@@ -131,24 +153,32 @@ class WhileLoopNode(AstNodeParsable):
         return iter((self.block_node, self.exp_node))
 
     def parse_tree_descendants(self):
-        return iter(("end", self.block_node, "do", self.exp_node, "while"))
+        return iter(("while", self.exp_node, "do", self.block_node, "end"))
 
     PARSABLE_FIRST_TOKEN_CONTENTS = {"while"}
     PARSABLE_ERROR_NAME = "while loop"
 
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
+        pos_start = parser.token_stream.peek().pos
         exp_node, block_node = parser.parse_simple_rule(
             (data_nodes.ExpNode, "do", BlockNode, "end"),
             next(parser.token_stream).content,
         )
-        return cls(exp_node, block_node)
+        return cls(pos_start, parser.token_stream.last_pos, exp_node, block_node)
 
 
-class RepeatLoopNode(AstNodeParsable):
+class RepeatLoopNode(AstNode, Parsable):
     __slots__ = "exp_node", "block_node"
 
-    def __init__(self, exp_node: data_nodes.ExpNode, block_node: BlockNode) -> None:
+    def __init__(
+        self,
+        start_index: int,
+        end_index: int,
+        exp_node: data_nodes.ExpNode,
+        block_node: BlockNode,
+    ) -> None:
+        super().__init__(start_index, end_index)
         self.exp_node = exp_node
         self.block_node = block_node
 
@@ -156,21 +186,22 @@ class RepeatLoopNode(AstNodeParsable):
         return iter((self.block_node, self.exp_node))
 
     def parse_tree_descendants(self):
-        return iter((self.block_node, "until", self.exp_node, "repeat"))
+        return iter(("repeat", self.exp_node, "until", self.block_node))
 
     PARSABLE_FIRST_TOKEN_CONTENTS = {"repeat"}
     PARSABLE_ERROR_NAME = "repeat loop"
 
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
+        pos_start = parser.token_stream.peek().pos
         block_node, exp_node = parser.parse_simple_rule(
             (BlockNode, "until", data_nodes.ExpNode),
             next(parser.token_stream).content,
         )
-        return cls(exp_node, block_node)
+        return cls(pos_start, parser.token_stream.last_pos, exp_node, block_node)
 
 
-class ForLoopNode(AstNodeParsable):
+class ForLoopNode(AstNode, Parsable):
     __slots__ = (
         "name_node",
         "assign_exp_node",
@@ -181,12 +212,15 @@ class ForLoopNode(AstNodeParsable):
 
     def __init__(
         self,
+        start_index: int,
+        end_index: int,
         name_node: data_nodes.NameNode,
         assign_exp_node: data_nodes.ExpNode,
         cond_exp_node: data_nodes.ExpNode,
         iter_exp_node: data_nodes.ExpNode | None,
         block_node: BlockNode,
     ) -> None:
+        super().__init__(start_index, end_index)
         self.name_node = name_node
         self.assign_exp_node = assign_exp_node
         self.cond_exp_node = cond_exp_node
@@ -206,9 +240,9 @@ class ForLoopNode(AstNodeParsable):
 
     def parse_tree_descendants(self):
         return chain(
-            ("end", self.block_node, "do"),
-            () if self.iter_exp_node is None else (self.iter_exp_node, ","),
-            (self.cond_exp_node, ",", self.assign_exp_node, "=", self.name_node, "for"),
+            ("for", self.name_node, "=", self.assign_exp_node, ",", self.cond_exp_node),
+            () if self.iter_exp_node is None else (",", self.iter_exp_node),
+            ("do", self.block_node, "end"),
         )
 
     PARSABLE_FIRST_TOKEN_CONTENTS = {"for"}
@@ -217,6 +251,7 @@ class ForLoopNode(AstNodeParsable):
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
         stream = parser.token_stream
+        pos_start = stream.peek().pos
         name_node, assign_exp_node, cond_exp_node = parser.parse_simple_rule(
             (data_nodes.NameNode, "=", data_nodes.ExpNode, ",", data_nodes.ExpNode),
             next(stream).content,
@@ -233,7 +268,15 @@ class ForLoopNode(AstNodeParsable):
 
         (block_node,) = parser.parse_simple_rule(("do", BlockNode, "end"), last_err_str)
 
-        return cls(name_node, assign_exp_node, cond_exp_node, iter_exp_node, block_node)
+        return cls(
+            pos_start,
+            stream.last_pos,
+            name_node,
+            assign_exp_node,
+            cond_exp_node,
+            iter_exp_node,
+            block_node,
+        )
 
     @classmethod
     def parsable_presented_in_stream(
@@ -245,15 +288,18 @@ class ForLoopNode(AstNodeParsable):
         )
 
 
-class ForIterLoopNode(AstNodeParsable):
+class ForIterLoopNode(AstNode, Parsable):
     __slots__ = "name_node_list", "exp_node_list", "block_node"
 
     def __init__(
         self,
+        start_index: int,
+        end_index: int,
         name_node_list: list[data_nodes.NameNode],
         exp_node_list: list[data_nodes.ExpNode],
         block_node: BlockNode,
     ) -> None:
+        super().__init__(start_index, end_index)
         self.name_node_list = name_node_list
         self.exp_node_list = exp_node_list
         self.block_node = block_node
@@ -267,11 +313,11 @@ class ForIterLoopNode(AstNodeParsable):
 
     def parse_tree_descendants(self):
         return chain(
-            ("end", self.block_node, "do"),
-            iter_sep(reversed(self.exp_node_list)),
-            ("in",),
-            iter_sep(reversed(self.name_node_list)),
             ("for",),
+            iter_sep(iter(self.name_node_list)),
+            ("in",),
+            iter_sep(iter(self.exp_node_list)),
+            ("do", self.block_node, "end"),
         )
 
     PARSABLE_FIRST_TOKEN_CONTENTS = {"for"}
@@ -280,6 +326,7 @@ class ForIterLoopNode(AstNodeParsable):
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
         stream = parser.token_stream
+        pos_start = stream.peek().pos
         name_node_list = list(
             parser.parse_list(
                 data_nodes.NameNode,
@@ -298,7 +345,13 @@ class ForIterLoopNode(AstNodeParsable):
             ("do", BlockNode, "end"), exp_node_list[-1].PARSABLE_ERROR_NAME
         )
 
-        return cls(name_node_list, exp_node_list, block_node)
+        return cls(
+            pos_start,
+            stream.last_pos,
+            name_node_list,
+            exp_node_list,
+            block_node,
+        )
 
     @classmethod
     def parsable_presented_in_stream(
@@ -314,14 +367,17 @@ class ForIterLoopNode(AstNodeParsable):
 
 
 @parsable_starts_with(data_nodes.VarNode)
-class VarsAssignNode(AstNodeParsable):
+class VarsAssignNode(AstNode, Parsable):
     __slots__ = "var_node_list", "exp_node_list"
 
     def __init__(
         self,
+        start_index: int,
+        end_index: int,
         var_node_list: list[data_nodes.VarNode],
         exp_node_list: list[data_nodes.ExpNode],
     ) -> None:
+        super().__init__(start_index, end_index)
         self.var_node_list = var_node_list
         self.exp_node_list = exp_node_list
 
@@ -330,15 +386,16 @@ class VarsAssignNode(AstNodeParsable):
 
     def parse_tree_descendants(self):
         return chain(
-            iter_sep(reversed(self.exp_node_list)),
+            iter_sep(iter(self.var_node_list)),
             ("=",),
-            iter_sep(reversed(self.var_node_list)),
+            iter_sep(iter(self.exp_node_list)),
         )
 
     PARSABLE_ERROR_NAME = "variable assigment"
 
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
+        pos_start = parser.token_stream.peek().pos
         var_node_list = list(parser.parse_list(data_nodes.VarNode, greedy=True))
 
         parser.parse_terminal("=", var_node_list[-1].PARSABLE_ERROR_NAME)
@@ -352,7 +409,12 @@ class VarsAssignNode(AstNodeParsable):
             )
         )
 
-        return cls(var_node_list, exp_node_list)
+        return cls(
+            pos_start,
+            parser.token_stream.last_pos,
+            var_node_list,
+            exp_node_list,
+        )
 
     @classmethod
     def parsable_presented_in_stream(
@@ -361,14 +423,17 @@ class VarsAssignNode(AstNodeParsable):
         return data_nodes.VarNode.parsable_presented_in_stream(stream, index)
 
 
-class LocalVarsAssignNode(AstNodeParsable):
+class LocalVarsAssignNode(AstNode, Parsable):
     __slots__ = "name_node_list", "exp_node_list"
 
     def __init__(
         self,
+        start_index: int,
+        end_index: int,
         name_node_list: list[data_nodes.NameNode],
         exp_node_list: list[data_nodes.ExpNode],
     ) -> None:
+        super().__init__(start_index, end_index)
         self.name_node_list = name_node_list
         self.exp_node_list = exp_node_list
 
@@ -378,13 +443,13 @@ class LocalVarsAssignNode(AstNodeParsable):
     def parse_tree_descendants(self):
         if self.exp_node_list:
             return chain(
-                iter_sep(reversed(self.exp_node_list)),
-                ("=",),
-                iter_sep(reversed(self.name_node_list)),
                 ("local",),
+                iter_sep(iter(self.name_node_list)),
+                ("=",),
+                iter_sep(iter(self.exp_node_list)),
             )
 
-        return chain(iter_sep(reversed(self.name_node_list)), ("local",))
+        return chain(("local",), iter_sep(iter(self.name_node_list)))
 
     PARSABLE_FIRST_TOKEN_CONTENTS = {"local"}
     PARSABLE_ERROR_NAME = "local variable assigment"
@@ -392,6 +457,7 @@ class LocalVarsAssignNode(AstNodeParsable):
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
         stream = parser.token_stream
+        pos_start = stream.peek().pos
         name_node_list = list(
             parser.parse_list(
                 data_nodes.NameNode,
@@ -413,7 +479,7 @@ class LocalVarsAssignNode(AstNodeParsable):
                 )
             )
 
-        return cls(name_node_list, exp_node_list)
+        return cls(pos_start, stream.last_pos, name_node_list, exp_node_list)
 
     @classmethod
     def parsable_presented_in_stream(
@@ -428,14 +494,17 @@ class LocalVarsAssignNode(AstNodeParsable):
 import lua.lua_ast.ast_nodes.nodes.function_nodes as function_nodes
 
 
-class FuncAssignNode(AstNodeParsable):
+class FuncAssignNode(AstNode, Parsable):
     __slots__ = "funcname_node", "funcbody_node"
 
     def __init__(
         self,
+        start_index: int,
+        end_index: int,
         funcname_node: function_nodes.FuncNameNode,
         funcbody_node: function_nodes.FuncBodyNode,
     ) -> None:
+        super().__init__(start_index, end_index)
         self.funcname_node = funcname_node
         self.funcbody_node = funcbody_node
 
@@ -443,26 +512,37 @@ class FuncAssignNode(AstNodeParsable):
         return iter((self.funcbody_node, self.funcname_node))
 
     def parse_tree_descendants(self):
-        return iter((self.funcbody_node, self.funcname_node, "function"))
+        return iter(("function", self.funcname_node, self.funcbody_node))
 
     PARSABLE_FIRST_TOKEN_CONTENTS = {"function"}
     PARSABLE_ERROR_NAME = "function declaration"
 
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
+        pos_start = parser.token_stream.peek().pos
         funcname_node, funcbody_node = parser.parse_simple_rule(
             (function_nodes.FuncNameNode, function_nodes.FuncBodyNode),
             next(parser.token_stream).content,
         )
-        return cls(funcname_node, funcbody_node)
+        return cls(
+            pos_start,
+            parser.token_stream.last_pos,
+            funcname_node,
+            funcbody_node,
+        )
 
 
-class LocalFuncAssignNode(AstNodeParsable):
+class LocalFuncAssignNode(AstNode, Parsable):
     __slots__ = "name_node", "funcbody_node"
 
     def __init__(
-        self, name_node: data_nodes.NameNode, funcbody_node: function_nodes.FuncBodyNode
+        self,
+        start_index: int,
+        end_index: int,
+        name_node: data_nodes.NameNode,
+        funcbody_node: function_nodes.FuncBodyNode,
     ) -> None:
+        super().__init__(start_index, end_index)
         self.name_node = name_node
         self.funcbody_node = funcbody_node
 
@@ -470,19 +550,25 @@ class LocalFuncAssignNode(AstNodeParsable):
         return iter((self.funcbody_node, self.name_node))
 
     def parse_tree_descendants(self):
-        return iter((self.funcbody_node, self.name_node, "function", "local"))
+        return iter(("local", "function", self.name_node, self.funcbody_node))
 
     PARSABLE_FIRST_TOKEN_CONTENTS = {"local"}
     PARSABLE_ERROR_NAME = "local function declaration"
 
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
+        pos_start = parser.token_stream.peek().pos
         name_node, funcbody_node = parser.parse_simple_rule(
             ("function", data_nodes.NameNode, function_nodes.FuncBodyNode),
             next(parser.token_stream).content,
         )
 
-        return cls(name_node, funcbody_node)
+        return cls(
+            pos_start,
+            parser.token_stream.last_pos,
+            name_node,
+            funcbody_node,
+        )
 
     @classmethod
     def parsable_presented_in_stream(
@@ -497,15 +583,18 @@ class LocalFuncAssignNode(AstNodeParsable):
 # =============================  branch node ==================================
 
 
-class IfNode(AstNodeParsable):
+class IfNode(AstNode, Parsable):
     __slots__ = "block_exp", "block_exp_list", "else_block_node"
 
     def __init__(
         self,
+        start_index: int,
+        end_index: int,
         block_exp: tuple[BlockNode, data_nodes.ExpNode],
         block_exp_list: list[tuple[BlockNode, data_nodes.ExpNode]],
         else_block_node: BlockNode | None,
     ) -> None:
+        super().__init__(start_index, end_index)
         self.block_exp = block_exp
         self.block_exp_list = block_exp_list
         self.else_block_node = else_block_node
@@ -519,21 +608,21 @@ class IfNode(AstNodeParsable):
 
     def parse_tree_descendants(self):
         return chain(
+            ("if", self.block_exp[1], "then", self.block_exp[0]),
+            chain.from_iterable(
+                zip(
+                    cycle(("elseif", "then")),
+                    chain.from_iterable(map(reversed, self.block_exp_list)),
+                )
+            ),
             (
-                "end",
                 *(
                     ()
                     if self.else_block_node is None
-                    else (self.else_block_node, "else")
+                    else ("else", self.else_block_node)
                 ),
+                "end",
             ),
-            chain.from_iterable(
-                zip(
-                    chain.from_iterable(reversed(self.block_exp_list)),
-                    cycle(("then", "elseif")),
-                )
-            ),
-            (self.block_exp[0], "then", self.block_exp[1], "if"),
         )
 
     PARSABLE_FIRST_TOKEN_CONTENTS = {"if"}
@@ -542,6 +631,7 @@ class IfNode(AstNodeParsable):
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
         stream = parser.token_stream
+        pos_start = stream.peek().pos
         block_exp_list: list[tuple[BlockNode, data_nodes.ExpNode]] = []
         else_block_node = None
 
@@ -566,13 +656,19 @@ class IfNode(AstNodeParsable):
 
         parser.parse_terminal("end", "block inside if statement")
 
-        return cls(block_exp, block_exp_list, else_block_node)
+        return cls(
+            pos_start,
+            stream.last_pos,
+            block_exp,
+            block_exp_list,
+            else_block_node,
+        )
 
 
 # ==============================  other nodes =================================
 
 
-class EmptyNode(AstNodeParsable):
+class EmptyNode(AstNode, Parsable):
     __slots__ = ()
 
     def parse_tree_descendants(self):
@@ -581,18 +677,26 @@ class EmptyNode(AstNodeParsable):
     PARSABLE_FIRST_TOKEN_CONTENTS = {";"}
     PARSABLE_ERROR_NAME = "';' statement"
 
+    @classmethod
+    def parsable_from_parser(cls, parser: LuaParser) -> Self:
+        t = next(parser.token_stream)
+        return cls(t.pos, parser.token_stream.last_pos)
 
-class RetNode(AstNodeParsable):
+
+class RetNode(AstNode, Parsable):
     __slots__ = ("exp_node_list",)
 
-    def __init__(self, exp_node_list: list[data_nodes.ExpNode]) -> None:
+    def __init__(
+        self, start_index: int, end_index: int, exp_node_list: list[data_nodes.ExpNode]
+    ) -> None:
+        super().__init__(start_index, end_index)
         self.exp_node_list = exp_node_list
 
     def descendants(self):
         return reversed(self.exp_node_list)
 
     def parse_tree_descendants(self):
-        return chain(iter_sep(reversed(self.exp_node_list)), ("return",))
+        return chain(("return",), iter_sep(iter(self.exp_node_list)))
 
     PARSABLE_FIRST_TOKEN_CONTENTS = {"return"}
     PARSABLE_ERROR_NAME = "return statement"
@@ -600,6 +704,7 @@ class RetNode(AstNodeParsable):
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
         stream = parser.token_stream
+        pos_start = stream.peek().pos
         exp_node_list: list[data_nodes.ExpNode] = []
         next(stream)
 
@@ -611,24 +716,29 @@ class RetNode(AstNodeParsable):
         if stream.peek().content == ";":
             next(stream)
 
-        return cls(exp_node_list)
+        return cls(pos_start, stream.last_pos, exp_node_list)
 
 
-class BlockNode(AstNodeParsable):
+class BlockNode(AstNode, Parsable):
     # RetNode if it exists should be the last element of statement list
     __slots__ = ("statement_node_list",)
 
-    def __init__(self, statement_node_list: list[AstNodeParsable]) -> None:
+    def __init__(
+        self, start_index: int, end_index: int, statement_node_list: list[AstNode]
+    ) -> None:
+        super().__init__(start_index, end_index)
         self.statement_node_list = statement_node_list
 
     def has_return_statement(self) -> bool:
-        return isinstance(self.statement_node_list[-1], RetNode)
+        return len(self.statement_node_list) > 0 and isinstance(
+            self.statement_node_list[-1], RetNode
+        )
 
     def descendants(self):
         return reversed(self.statement_node_list)
 
     def parse_tree_descendants(self):
-        return reversed(self.statement_node_list)
+        return iter(self.statement_node_list)
 
     _D_T_STATEMENTS = TokenDispatchTable.dispatch_types(
         FuncCallNode,
@@ -652,7 +762,8 @@ class BlockNode(AstNodeParsable):
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
         stream = parser.token_stream
-        statement_node_list: list[AstNodeParsable] = []
+        pos_start = stream.peek().pos
+        statement_node_list: list[AstNode] = []
 
         while True:
             match cls._D_T_STATEMENTS[stream.peek()]:
@@ -675,7 +786,7 @@ class BlockNode(AstNodeParsable):
                     if p == RetNode:
                         break
 
-        return cls(statement_node_list)
+        return cls(pos_start, stream.last_pos, statement_node_list)
 
     # since block can be empty we assume that
     # it can be always extracted from stream
@@ -687,10 +798,11 @@ class BlockNode(AstNodeParsable):
         return True
 
 
-class ChunkNode(AstNodeParsable):
+class ChunkNode(AstNode, Parsable):
     __slots__ = ("block_node",)
 
-    def __init__(self, block_node: BlockNode) -> None:
+    def __init__(self, start_index: int, end_index: int, block_node: BlockNode) -> None:
+        super().__init__(start_index, end_index)
         self.block_node = block_node
 
     def descendants(self):
@@ -702,6 +814,7 @@ class ChunkNode(AstNodeParsable):
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
         stream = parser.token_stream
+        pos_start = stream.peek().pos
         main_block: BlockNode = parser.parse_parsable(
             BlockNode,
             "start of file",
@@ -715,6 +828,7 @@ class ChunkNode(AstNodeParsable):
             # something is left after parsing
             if token.name != "EOF":
                 raise WrongTokenError(
+                    token.name,
                     token.content,
                     token.pos,
                     "<EOF>" if main_block.has_return_statement() else "statement",
@@ -724,7 +838,7 @@ class ChunkNode(AstNodeParsable):
             # no more tokens -> chunk is parsed completely
             pass
 
-        return cls(main_block)
+        return cls(pos_start, stream.last_pos, main_block)
 
     # since chunk can be empty we assume that
     # it can be always extracted from stream

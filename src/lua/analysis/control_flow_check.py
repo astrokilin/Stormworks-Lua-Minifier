@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from functools import singledispatchmethod
 
 from lua.lua_ast import (
-    AstNodeParsedT,
+    AstNode,
     # statement nodes
     ChunkNode,
     BlockNode,
@@ -77,8 +77,8 @@ class StaticChecker:
         self.__err_nodes.sort()
         return self.__err_nodes
 
-    def _add_error(self, node: AstNodeParsedT, s: str):
-        self.__err_nodes.append((node.index, node.length, s))
+    def _add_error(self, node: AstNode, s: str):
+        self.__err_nodes.append((node.start_index, node.end_index, s))
 
     def _process_block_node(self, node: BlockNode, from_loop: bool):
         labels: dict[str, int] = {}
@@ -106,7 +106,7 @@ class StaticChecker:
         self.__block_stack.pop()
 
     @singledispatchmethod
-    def _processs_node(self, arg: AstNodeParsedT) -> None:
+    def _processs_node(self, arg: AstNode) -> None:
         """Process statement node according to its type"""
 
     # extractors

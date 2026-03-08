@@ -3,11 +3,10 @@ This module contains all parent classes for lua abstact syntax tree
 """
 
 from __future__ import annotations
-from collections.abc import Generator, Iterator
-from typing import TypeVar
+from collections.abc import Iterator
 
 from lua.graph import TreeNode
-from lua.lua_ast.parsing import Parsable, ParsableSkipable
+from lua.lua_ast.parsing import Parsable
 
 
 class AstNode(TreeNode):
@@ -16,7 +15,11 @@ class AstNode(TreeNode):
     and provide realization for its public methods
     """
 
-    __slots__ = ()
+    __slots__ = "start_index", "end_index"
+
+    def __init__(self, start_index: int, end_index: int):
+        self.start_index = start_index
+        self.end_index = end_index
 
     # simulate parse tree traversal
 
@@ -25,42 +28,11 @@ class AstNode(TreeNode):
         """should return parse descendants (nodes or strings) in reversed order"""
         return iter(())
 
-    def terminals(self) -> Generator[str, None, None]:
-        """convert ast node to term iterator"""
-
-        stack: list[AstNode | str] = [self]
-        while stack:
-            str_or_node = stack.pop()
-
-            if isinstance(str_or_node, str):
-                yield str_or_node
-                continue
-
-            stack.extend(str_or_node.parse_tree_descendants())
-
     def __repr__(self):
-        return self.__class__.__name__
-
-    def __str__(self):
-        return " ".join(self.terminals())
+        return f"{self.__class__.__name__} ({self.start_index}: {self.end_index})"
 
 
-class AstNodeParsable(AstNode, Parsable):
-    """ast node derived from text string"""
-
-    __slots__ = ()
-
-
-class AstNodeParsableSkipable(AstNode, ParsableSkipable):
-    """ast node derived from text string, parser can lookahead it"""
-
-    __slots__ = ()
-
-
-AstNodeParsedT = AstNodeParsable | AstNodeParsableSkipable
-
-
-class OperationNode(AstNodeParsable):
+class OperationNode(AstNode, Parsable):
     """descendants of this node represents operations"""
 
     _OPERATION_PRECEDENCE: dict[str, int] = {}
@@ -68,12 +40,14 @@ class OperationNode(AstNodeParsable):
 
     __slots__ = ("opcode",)
 
-    def __init__(self, opcode: str) -> None:
+    def __init__(self, index: int, length: int, opcode: str) -> None:
+        super().__init__(index, length)
         self.opcode = opcode
 
     @classmethod
     def parsable_from_parser(cls, parser):
-        return cls(opcode=next(parser.token_stream).content)
+        t = next(parser.token_stream)
+        return cls(t.pos, t.pos + len(t.content), t.content)
 
     def __repr__(self):
         return super().__repr__() + f" opcode: {self.opcode}"

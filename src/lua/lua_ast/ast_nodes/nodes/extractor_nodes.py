@@ -4,20 +4,27 @@ from itertools import chain
 
 from lua.lua_ast.lexer import BufferedTokenStream
 from lua.lua_ast.parsing import (
+    ParsableSkipable,
     parsable_starts_with,
     TokenDispatchTable,
     LuaParser,
 )
 from lua.lua_ast.runtime_routines import iter_sep
-from lua.lua_ast.ast_nodes.base_nodes import AstNodeParsableSkipable
+from lua.lua_ast.ast_nodes.base_nodes import AstNode
 
 import lua.lua_ast.ast_nodes.nodes.data_nodes as data_nodes
 
 
-class TableGetterNode(AstNodeParsableSkipable):
+class TableGetterNode(AstNode, ParsableSkipable):
     __slots__ = ("field_node",)
 
-    def __init__(self, field_node: data_nodes.NameNode | data_nodes.ExpNode) -> None:
+    def __init__(
+        self,
+        start_index: int,
+        end_index: int,
+        field_node: data_nodes.NameNode | data_nodes.ExpNode,
+    ) -> None:
+        super().__init__(start_index, end_index)
         self.field_node = field_node
 
     def descendants(self):
@@ -25,9 +32,9 @@ class TableGetterNode(AstNodeParsableSkipable):
 
     def parse_tree_descendants(self):
         if isinstance(self.field_node, data_nodes.ExpNode):
-            return iter(("]", self.field_node, "["))
+            return iter(("[", self.field_node, "]"))
 
-        return iter((self.field_node, "."))
+        return iter((".", self.field_node))
 
     PARSABLE_FIRST_TOKEN_CONTENTS = {"[", "."}
     PARSABLE_ERROR_NAME = "table field"
@@ -43,7 +50,7 @@ class TableGetterNode(AstNodeParsableSkipable):
         else:
             field = parser.parse_parsable(data_nodes.NameNode, t.content, True)
 
-        return cls(field)
+        return cls(t.pos, parser.token_stream.last_pos, field)
 
     @classmethod
     def parsable_skip_in_stream(
@@ -55,12 +62,17 @@ class TableGetterNode(AstNodeParsableSkipable):
         return stream.peek_matching_parenthesis("[", "]", index)
 
 
-class MethodGetterNode(AstNodeParsableSkipable):
+class MethodGetterNode(AstNode, ParsableSkipable):
     __slots__ = "name_node", "funcgetter_node"
 
     def __init__(
-        self, name_node: data_nodes.NameNode, funcgetter_node: FuncGetterNode
+        self,
+        start_index: int,
+        end_index: int,
+        name_node: data_nodes.NameNode,
+        funcgetter_node: FuncGetterNode,
     ) -> None:
+        super().__init__(start_index, end_index)
         self.name_node = name_node
         self.funcgetter_node = funcgetter_node
 
@@ -68,20 +80,25 @@ class MethodGetterNode(AstNodeParsableSkipable):
         return iter((self.funcgetter_node, self.name_node))
 
     def parse_tree_descendants(self):
-        return iter((self.funcgetter_node, self.name_node, ":"))
+        return iter((":", self.name_node, self.funcgetter_node))
 
     PARSABLE_FIRST_TOKEN_CONTENTS = {":"}
     PARSABLE_ERROR_NAME = "method call"
 
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
+        pos_start = parser.token_stream.peek().pos
+        name_node = parser.parse_parsable(
+            data_nodes.NameNode, next(parser.token_stream).content, True
+        )
+        func_node = parser.parse_parsable(
+            FuncGetterNode, data_nodes.NameNode.PARSABLE_ERROR_NAME, True
+        )
         return cls(
-            parser.parse_parsable(
-                data_nodes.NameNode, next(parser.token_stream).content, True
-            ),
-            parser.parse_parsable(
-                FuncGetterNode, data_nodes.NameNode.PARSABLE_ERROR_NAME, True
-            ),
+            pos_start,
+            parser.token_stream.last_pos,
+            name_node,
+            func_node,
         )
 
     @classmethod
@@ -97,15 +114,18 @@ class MethodGetterNode(AstNodeParsableSkipable):
 
 
 @parsable_starts_with(data_nodes.TableConstrNode)
-class FuncGetterNode(AstNodeParsableSkipable):
+class FuncGetterNode(AstNode, ParsableSkipable):
     __slots__ = ("arg",)
 
     def __init__(
         self,
+        start_index: int,
+        end_index: int,
         arg: list[data_nodes.ExpNode]
         | data_nodes.TableConstrNode
         | data_nodes.ConstNode,
     ) -> None:
+        super().__init__(start_index, end_index)
         self.arg = arg
 
     def descendants(self):
@@ -116,7 +136,7 @@ class FuncGetterNode(AstNodeParsableSkipable):
 
     def parse_tree_descendants(self):
         if isinstance(self.arg, list):
-            return chain((")",), iter_sep(reversed(self.arg)), ("(",))
+            return chain(("(",), iter_sep(iter(self.arg)), (")",))
 
         return iter((self.arg,))
 
@@ -135,6 +155,7 @@ class FuncGetterNode(AstNodeParsableSkipable):
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
         stream = parser.token_stream
+        pos_start = stream.peek().pos
         arg: list[
             data_nodes.ExpNode
         ] | data_nodes.TableConstrNode | data_nodes.ConstNode
@@ -150,7 +171,7 @@ class FuncGetterNode(AstNodeParsableSkipable):
 
             parser.parse_terminal(")", err_name)
 
-        return cls(arg)
+        return cls(pos_start, parser.token_stream.last_pos, arg)
 
     @classmethod
     def parsable_skip_in_stream(

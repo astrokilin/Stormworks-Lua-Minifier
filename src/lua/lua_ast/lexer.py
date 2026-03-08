@@ -5,7 +5,6 @@ This module provides everything connected with lexical structure of lua
 from re import finditer
 from collections import deque
 from dataclasses import dataclass
-from collections.abc import Iterator
 
 from lua.lua_ast.exceptions import UnexpectedSymbolError
 
@@ -109,6 +108,34 @@ class LuaLexer:
 
     __slots__ = "__final_pattern", "__skip_names"
 
+    concat_syms = {
+        "+",
+        "-",
+        "*",
+        "/",
+        "%",
+        "^",
+        "#",
+        "&",
+        "~",
+        "|",
+        "<",
+        ">",
+        "=",
+        "(",
+        ")",
+        "{",
+        "}",
+        "[",
+        "]",
+        ":",
+        ";",
+        ",",
+        ".",
+        "'",
+        '"',
+    }
+
     LUA_TOKEN_PATTERNS = (
         TokenPattern("delimeter", r"[\s\n\r]+", ignore=True),
         TokenPattern(
@@ -165,57 +192,9 @@ class LuaLexer:
         return BufferedTokenStream(txt, self.__final_pattern, self.__skip_names)
 
     @staticmethod
-    def concat(term_iter: Iterator[str]) -> Iterator[str]:
-        """puts spaces where its necessary between terms recieved from ast iterator
-        some terms in lua should be separated by space like 'local function'
-        """
-        concat_syms = {
-            "+",
-            "-",
-            "*",
-            "/",
-            "%",
-            "^",
-            "#",
-            "&",
-            "~",
-            "|",
-            "<",
-            ">",
-            "=",
-            "(",
-            ")",
-            "{",
-            "}",
-            "[",
-            "]",
-            ":",
-            ";",
-            ",",
-            ".",
-            "'",
-            '"',
-        }
-
-        prev_terminal = next(term_iter, None)
-
-        if prev_terminal is None:
-            yield ""
-            return
-
-        yield prev_terminal
-
-        concat = prev_terminal[-1] in concat_syms
-
-        for terminal in term_iter:
-            new_concat = terminal[-1] in concat_syms
-            if (
-                not (concat or new_concat)
-                or prev_terminal[-1] == "."
-                and terminal[-1] == "."
-            ):
-                yield " "
-
-            yield terminal
-            concat = new_concat
-            prev_terminal = terminal
+    def is_concat(sym_a: str, sym_b: str) -> bool:
+        return (
+            not (sym_a in LuaLexer.concat_syms or sym_b in LuaLexer.concat_syms)
+            or sym_a == "."
+            and sym_b == "."
+        )

@@ -58,6 +58,7 @@ def run_app():
         undo=True,
     )
     left_text.pack(side="left", fill="both", expand=True)
+    left_text.tag_configure("highlight", foreground="#4caf50")
     left_text.focus_set()
 
     # center frame
@@ -101,6 +102,7 @@ def run_app():
     # right text box
     right_text = Text(root, bg="#1a1a1a", fg="#aaaaaa", font=text_font)
     right_text.grid(row=0, column=2, sticky="nsew", padx=10, pady=10)
+    right_text.tag_configure("highlight", foreground="#4caf50")
     root.columnconfigure(2, weight=1)
 
     # scrollbar stuff
@@ -113,6 +115,30 @@ def run_app():
     scrollbar.config(
         command=lambda *args: (left_text.yview(*args), line_numbers.yview(*args))
     )
+
+    def highlight_range(
+        text_widget, start_offset: int, end_offset: int, tag_name="highlight"
+    ):
+        start_index = text_widget.index(f"1.0 + {start_offset} chars")
+        end_index = text_widget.index(f"1.0 + {end_offset} chars")
+
+        text_widget.tag_remove(tag_name, "1.0", "end")
+        text_widget.tag_add(tag_name, start_index, end_index)
+
+        # ensure visible
+        text_widget.see(start_index)
+
+        # center the highlighted region
+        bbox = text_widget.bbox(start_index)
+        if bbox is None:
+            return
+
+        y = bbox[1]
+        line_height = bbox[3]
+        widget_height = text_widget.winfo_height()
+
+        # scroll so highlight is centered
+        text_widget.yview_scroll(int((y - widget_height / 2) / line_height), "units")
 
     # textbox ivents
     def handle_paste(event):
@@ -128,8 +154,31 @@ def run_app():
 
         return "break"
 
-    left_text.bind("<<Paste>>", handle_paste)
-    right_text.bind("<<Paste>>", handle_paste)
+    def on_text_change(event):
+        left_text.tag_remove("highlight", "1.0", "end")
+        left_text.edit_modified(False)
+        right_text.tag_remove("highlight", "1.0", "end")
+        right_text.edit_modified(False)
+
+    def handle_left_text_click(event):
+        update_cursor(left_text)
+
+    def handle_right_text_click(event):
+        update_cursor(right_text)
+
+        code = left_text.get("1.0", "end-1c")
+        res = right_text.get("1.0", "end-1c")
+
+        if (
+            hash(code) == left_text_hash
+            and hash(res) == right_text_hash
+            and right_text_map is not None
+        ):
+            tmp = right_text.count("1.0", INSERT, "chars")
+            offset = tmp[0] if tmp is not None else 0
+            m = right_text_map.map(offset)
+            highlight_range(right_text, m[2], m[3])
+            highlight_range(left_text, m[0], m[1])
 
     # actions
     def sync_scroll(*args):
@@ -145,18 +194,22 @@ def run_app():
 
         line_numbers.config(state="disabled")
 
-    def update_cursor(event=None):
-        line, col = left_text.index(INSERT).split(".")
+    def update_cursor(text_widget, event=None):
+        line, col = text_widget.index(INSERT).split(".")
         cursor_label.config(text=f"Line: {line}, Col: {int(col)+1}")
 
     # buttons
     def minify_code():
+        nonlocal left_text_hash
+        nonlocal right_text_hash
+        nonlocal right_text_map
         try:
             code = left_text.get("1.0", "end-1c")
             l_obj = LuaObject(code)
-            l_obj.show_ast()
+            # l_obj.show_ast()
             l_obj.do_renaming()
-            result = l_obj.text()
+            result_map = l_obj.text()
+            result = result_map.text
 
             right_text.config(fg="#aaaaaa")
             orig_len_label.config(text=f"Original length: {len(code)}")
@@ -164,6 +217,9 @@ def run_app():
             prop_label.config(
                 text=f"Proportion: {len(code)/len(result) if code else 0:.2f}"
             )
+            left_text_hash = hash(code)
+            right_text_hash = hash(result)
+            right_text_map = result_map
 
         except ParsingError as e:
             result = str(e)
@@ -171,7 +227,7 @@ def run_app():
 
         right_text.delete("1.0", END)
         right_text.insert(END, result)
-        update_cursor()
+        update_cursor(left_text)
         update_line_numbers()
 
     def copy_result():
@@ -244,12 +300,23 @@ def run_app():
         )
         menu.tk_popup(event.x_root, event.y_root)
 
+    # bindings
+    left_text.bind("<<Paste>>", handle_paste)
+    right_text.bind("<<Paste>>", handle_paste)
+
     left_text.bind("<Button-3>", lambda e: show_menu(e, left_text))
     right_text.bind("<Button-3>", lambda e: show_menu(e, right_text))
 
-    # bindings
-    left_text.bind("<KeyRelease>", lambda e: (update_line_numbers(), update_cursor()))
-    left_text.bind("<ButtonRelease-1>", lambda e: update_cursor())
+    left_text.bind(
+        "<KeyRelease>", lambda e: (update_line_numbers(), update_cursor(left_text))
+    )
+    left_text.bind("<ButtonRelease-1>", handle_left_text_click)
+    right_text.bind("<ButtonRelease-1>", handle_right_text_click)
+
+    left_text.bind("<<Modified>>", on_text_change)
+    right_text.bind("<<Modified>>", on_text_change)
+
+    # left_text.bind("<Enter>", handle_left_text_mouse_move)
 
     # scaling
     root.rowconfigure(0, weight=1)
@@ -257,7 +324,11 @@ def run_app():
     root.columnconfigure(1, weight=0)
     root.columnconfigure(2, weight=1)
 
+    right_text_hash = hash("")
+    right_text_map = None
+    left_text_hash = hash("")
+
     update_line_numbers()
-    update_cursor()
+    update_cursor(left_text)
 
     root.mainloop()

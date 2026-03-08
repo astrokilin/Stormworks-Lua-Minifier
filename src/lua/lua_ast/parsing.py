@@ -31,10 +31,6 @@ class Parsable:
 
     PARSABLE_ERROR_NAME: str = ""
 
-    __slots__ = "index", "length"
-    index: int
-    length: int
-
     @classmethod
     def parsable_from_parser(cls: type[T], parser: LuaParser) -> T:
         """
@@ -188,6 +184,7 @@ class LuaParser:
 
         if (t := next(self.token_stream)).content != expected_value:
             raise WrongTokenError(
+                t.name,
                 t.content,
                 t.pos,
                 err_name if err_name else f"'{expected_value}'",
@@ -211,17 +208,14 @@ class LuaParser:
         if greedy and not parsable_type.parsable_presented_in_stream(stream):
             t = next(stream)
             raise WrongTokenError(
+                t.name,
                 t.content,
                 t.pos,
                 err_name if err_name else parsable_type.PARSABLE_ERROR_NAME,
                 prev_err_name,
             )
 
-        pos_start = stream.peek().pos
-        res = parsable_type.parsable_from_parser(self)
-        res.index = pos_start
-        res.length = stream.last_pos - pos_start
-        return res
+        return parsable_type.parsable_from_parser(self)
 
     def parse_list(
         self,
@@ -260,7 +254,11 @@ class LuaParser:
                 error_name = f"'{next(stream).content}'"
                 t = next(stream)
                 raise WrongTokenError(
-                    t.content, t.pos, parsable_type.PARSABLE_ERROR_NAME, error_name
+                    t.name,
+                    t.content,
+                    t.pos,
+                    parsable_type.PARSABLE_ERROR_NAME,
+                    error_name,
                 )
 
     def parse_simple_rule(
