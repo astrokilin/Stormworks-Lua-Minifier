@@ -62,6 +62,7 @@ _RESERVED_GLOBAL_NAMES = {
     "type",
     # stormworks specific
     "async",
+    "httpReply",
     "onTick",
     "onDraw",
     "input",

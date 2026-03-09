@@ -25,19 +25,22 @@ class ErrBuilder:
         self.__positions = positions
         self.__text = text
 
-    def build_error(self, text_offset: int, err_length: int, explanation: str) -> str:
+    def build_error(
+        self, text_start_index: int, text_end_index: int, explanation: str
+    ) -> str:
         """
-        Takes subtext (text[text_offset: text_offset + err_length]) and explanation
+        Takes subtext (text[text_start_index: text_end_index]) and explanation
         forms error string from it
         """
 
-        line_num: int = bisect_left(self.__positions, text_offset)
+        err_length: int = text_end_index - text_start_index
+        line_num: int = bisect_left(self.__positions, text_start_index)
         line_start_offset: int = (
             self.__positions[line_num - 1 if line_num > 0 else 0] + 1
         )
 
-        row_num: int = text_offset - line_start_offset
-        line_end: int = bisect_left(self.__positions, text_offset + err_length)
+        row_num: int = text_start_index - line_start_offset
+        line_end: int = bisect_left(self.__positions, text_end_index)
         lines: list[str] = self.__text[
             line_start_offset : self.__positions[
                 line_end

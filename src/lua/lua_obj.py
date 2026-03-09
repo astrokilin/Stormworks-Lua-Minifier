@@ -19,7 +19,7 @@ class LuaObject:
         except (UnexpectedSymbolError, WrongTokenError) as e:
             raise ParsingError(
                 ErrBuilder(code).build_error(
-                    e.err_file_offset, len(e.err_content), str(e)
+                    e.err_file_offset, e.err_file_offset + len(e.err_content), str(e)
                 )
             ) from e
 
@@ -29,8 +29,8 @@ class LuaObject:
             err_builder = ErrBuilder(code)
             raise ParsingError(
                 "\n\n".join(
-                    err_builder.build_error(pos, length, expl)
-                    for pos, length, expl in control_flow_errors
+                    err_builder.build_error(start_pos, end_pos, expl)
+                    for start_pos, end_pos, expl in control_flow_errors
                 )
             )
 

@@ -59,6 +59,10 @@ Tkinter is usually included in default Python distributions on Linux. No extra d
 - Copy your script inside left text box.
 - Press 'Minify'.
 - Copy-paste minified script inside your stormworks microcontroller.
+- Try minified srcipt in game, suppose script errors at (1: 300) with variable 't'
+- Locate this place in minified script in right text box
+- Click on code and app will highlight with green the original script part
+- Debug and repeat
 
 ---
 
