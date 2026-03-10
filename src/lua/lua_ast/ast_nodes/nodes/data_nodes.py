@@ -1,3 +1,5 @@
+""" This module repesents nodes that can handle a data or manipulations with it """
+
 from __future__ import annotations
 from typing import Self
 from itertools import chain
@@ -34,7 +36,6 @@ class NameNode(AstNode, ParsableSkipable):
 
     @classmethod
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
-        pos_start = parser.token_stream.peek().pos
         t = next(parser.token_stream)
         return cls(
             t.pos,

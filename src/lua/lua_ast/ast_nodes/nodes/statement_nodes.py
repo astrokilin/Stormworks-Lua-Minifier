@@ -1,3 +1,5 @@
+""" This module represents statements nodes """
+
 from __future__ import annotations
 from typing import Self
 from itertools import chain, cycle

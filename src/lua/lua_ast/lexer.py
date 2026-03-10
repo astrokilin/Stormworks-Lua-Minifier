@@ -146,12 +146,15 @@ class LuaLexer:
         TokenPattern(
             "keyword",
             (
-                r"(?:false|local|then|break|for|nil|true|do|function|until"
-                r"|else|goto|while|elseif|if|repeat|end|in|return)\b"
+                r"(?:(false|local|then|break|for|nil|true|do|function|until"
+                r"|else|goto|while|elseif|if|repeat|end|in|return)(?![A-Za-z0-9_]))\b"
             ),
         ),
         TokenPattern("other", r"\.{3}|::|:"),
-        TokenPattern("op", r"not|and|or|<<|>>|//|==|~=|<=|>=|\.{2}|[+\-*%\^#&|<>=/~]"),
+        TokenPattern(
+            "op",
+            r"(not|and|or)(?![A-Za-z0-9_])|<<|>>|//|==|~=|<=|>=|\.{2}|[+\-*%\^#&|<>=/~]",
+        ),
         TokenPattern("dot", r"\."),
         TokenPattern(
             "string",
@@ -175,7 +178,7 @@ class LuaLexer:
             # dec num regex
             r"[0-9]+(?:\.[0-9]+)?(?:[pPeE][+-]?[0-9]+)?" + ")",
         ),
-        TokenPattern("id", r"[A-Za-z_]\w*"),
+        TokenPattern("id", r"[A-Za-z_][A-Za-z0-9_]*"),
         TokenPattern("EOF", r"\Z"),
     )
 
@@ -193,6 +196,11 @@ class LuaLexer:
 
     @staticmethod
     def is_concat(sym_a: str, sym_b: str) -> bool:
+        """
+        given last char of first terminal (sym_a) and first char of last
+        terminal (sym_b) should we place delimeter between them?
+        """
+
         return (
             not (sym_a in LuaLexer.concat_syms or sym_b in LuaLexer.concat_syms)
             or sym_a == "."

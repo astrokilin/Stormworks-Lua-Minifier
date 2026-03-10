@@ -9,6 +9,7 @@ from tkinter import (
     Menu,
     Scrollbar,
     font,
+    Canvas,
 )
 
 from lua import LuaObject, ParsingError
@@ -35,17 +36,11 @@ def run_app():
     left_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
     root.columnconfigure(0, weight=1)
 
-    line_numbers = Text(
+    line_numbers = Canvas(
         left_frame,
-        width=4,
-        padx=4,
-        pady=4,
+        width=40,
         bg=APP_MAIN_BG,
-        fg="#aaaaaa",
-        font=text_font,
-        state="disabled",
-        relief="flat",
-        bd=0,
+        highlightthickness=0,
     )
     line_numbers.pack(side="left", fill="y")
 
@@ -100,7 +95,9 @@ def run_app():
     cursor_label.grid(row=5, column=0, pady=(10, 0))
 
     # right text box
-    right_text = Text(root, bg="#1a1a1a", fg="#aaaaaa", font=text_font)
+    right_text = Text(
+        root, bg="#1a1a1a", fg="#aaaaaa", font=text_font, state="disabled"
+    )
     right_text.grid(row=0, column=2, sticky="nsew", padx=10, pady=10)
     right_text.tag_configure("highlight", foreground="#4caf50")
     root.columnconfigure(2, weight=1)
@@ -111,7 +108,6 @@ def run_app():
     left_text.config(
         yscrollcommand=lambda *args: (scrollbar.set(*args), sync_scroll(*args))
     )
-    line_numbers.config(yscrollcommand=scrollbar.set)
     scrollbar.config(
         command=lambda *args: (left_text.yview(*args), line_numbers.yview(*args))
     )
@@ -182,17 +178,31 @@ def run_app():
 
     # actions
     def sync_scroll(*args):
-        line_numbers.yview_moveto(left_text.yview()[0])
+        update_line_numbers()
 
     def update_line_numbers(event=None):
-        line_numbers.config(state="normal")
-        line_numbers.delete("1.0", END)
-        total_lines = int(left_text.index("end-1c").split(".")[0])
+        line_numbers.delete("all")
 
-        for i in range(1, total_lines + 1):
-            line_numbers.insert(END, f"{i}\n")
+        i = left_text.index("@0,0")
 
-        line_numbers.config(state="disabled")
+        while True:
+            dline = left_text.dlineinfo(i)
+            if dline is None:
+                break
+
+            y = dline[1]
+            line_number = i.split(".")[0]
+
+            line_numbers.create_text(
+                35,
+                y,
+                anchor="ne",
+                text=line_number,
+                fill="#aaaaaa",
+                font=text_font,
+            )
+
+            i = left_text.index(f"{i}+1line")
 
     def update_cursor(text_widget, event=None):
         line, col = text_widget.index(INSERT).split(".")
@@ -225,8 +235,11 @@ def run_app():
             result = str(e)
             right_text.config(fg="red")
 
+        right_text.config(state="normal")
         right_text.delete("1.0", END)
         right_text.insert(END, result)
+        right_text.config(state="disabled")
+
         update_cursor(left_text)
         update_line_numbers()
 
@@ -316,7 +329,8 @@ def run_app():
     left_text.bind("<<Modified>>", on_text_change)
     right_text.bind("<<Modified>>", on_text_change)
 
-    # left_text.bind("<Enter>", handle_left_text_mouse_move)
+    left_text.bind("<MouseWheel>", update_line_numbers)
+    left_text.bind("<Configure>", update_line_numbers)
 
     # scaling
     root.rowconfigure(0, weight=1)

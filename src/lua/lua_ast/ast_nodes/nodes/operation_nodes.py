@@ -1,3 +1,5 @@
+""" This module represents binary and unary operations """
+
 from __future__ import annotations
 
 from lua.lua_ast.ast_nodes.base_nodes import (
@@ -56,7 +58,6 @@ class BinOpNode(OperationNode):
         | data_nodes.TableConstrNode
         | OperationNode
         | None = None,
-        **kwargs,
     ) -> None:
         super().__init__(index, length, opcode)
         self.left_operand_node = left_operand_node
@@ -90,7 +91,6 @@ class UnOpNode(OperationNode):
         | data_nodes.TableConstrNode
         | UnOpNode
         | None = None,
-        **kwargs,
     ) -> None:
         super().__init__(index, length, opcode)
         self.right_operand_node = right_operand_node

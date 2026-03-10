@@ -1,3 +1,5 @@
+""" This module represents nodes, that extract data from other data """
+
 from __future__ import annotations
 from typing import Self
 from itertools import chain
