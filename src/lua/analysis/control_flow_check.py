@@ -261,7 +261,11 @@ class StaticChecker:
             )
 
             # backward jump is always valid
-            if cur_pos < target_pos and target_pos != last_meaningful_stmnt_pos:
+            if (
+                cur_pos < target_pos
+                and len(block_info.local_defs) > 0
+                and target_pos != last_meaningful_stmnt_pos
+            ):
                 nearest_local_def_ind: int = block_info.local_defs[
                     bisect(block_info.local_defs, cur_pos)
                 ]

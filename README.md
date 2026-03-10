@@ -29,6 +29,7 @@ You have two options to run the app on Windows:
 
 2. Using the pre-built executable  
    - Download the latest `.exe` from the Releases page.  
+	note: Windows defender may recognize exe as a trojan, it is a false positive. Common for pyinstaller. See pyinstaller/pyinstaller#5854
 
 ---
 
