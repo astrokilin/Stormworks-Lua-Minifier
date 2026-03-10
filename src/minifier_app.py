@@ -10,6 +10,7 @@ from tkinter import (
     Scrollbar,
     font,
     Canvas,
+    TclError,
 )
 
 from lua import LuaObject, ParsingError
@@ -139,12 +140,16 @@ def run_app():
     # textbox ivents
     def handle_paste(event):
         widget = event.widget
-        clipboard_text = root.clipboard_get()
+
+        try:
+            clipboard_text = root.clipboard_get()
+        except TclError:
+            return "break"
 
         if widget.tag_ranges("sel"):
             selected = widget.index("sel.first")
             widget.delete("sel.first", "sel.last")
-            widget.insert(selected, clipboard_text)
+            widget.insert("insert", clipboard_text)
         else:
             widget.insert("insert", clipboard_text)
 
