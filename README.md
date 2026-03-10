@@ -8,6 +8,7 @@ My simple tool to minify lua scripts when 8k symbols is not enought. Works both 
 - Simple GUI using Tkinter
 - Runs on both Windows and Linux
 - Requires Python 3.11 or higher
+- Clicking on minified text shows original source
 
 ## Requirements
 
