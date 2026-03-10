@@ -306,7 +306,7 @@ class _ScopeTreeBuilder:
 
     @_process_statement_node.register(GotoNode)
     def _(self, node: GotoNode):
-        self._add_name_use(node.name_node)
+        self._add_local_name_use(node.name_node)
 
     @_process_statement_node.register(DoBlockNode)
     def _(self, node: DoBlockNode):
