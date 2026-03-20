@@ -9,7 +9,6 @@ from typing import Any, TypeVar
 from lua.lua_ast.lexer import LuaLexer, Token, BufferedTokenStream
 from lua.lua_ast.exceptions import WrongTokenError
 
-
 ParsableFirstTokenType = set[str] | KeysView[str]
 
 T = TypeVar("T", bound="Parsable")

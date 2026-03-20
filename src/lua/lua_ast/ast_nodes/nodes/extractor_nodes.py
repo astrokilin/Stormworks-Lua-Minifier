@@ -1,4 +1,4 @@
-""" This module represents nodes, that extract data from other data """
+"""This module represents nodes, that extract data from other data"""
 
 from __future__ import annotations
 from typing import Self
@@ -123,9 +123,9 @@ class FuncGetterNode(AstNode, ParsableSkipable):
         self,
         start_index: int,
         end_index: int,
-        arg: list[data_nodes.ExpNode]
-        | data_nodes.TableConstrNode
-        | data_nodes.ConstNode,
+        arg: (
+            list[data_nodes.ExpNode] | data_nodes.TableConstrNode | data_nodes.ConstNode
+        ),
     ) -> None:
         super().__init__(start_index, end_index)
         self.arg = arg
@@ -158,9 +158,9 @@ class FuncGetterNode(AstNode, ParsableSkipable):
     def parsable_from_parser(cls, parser: LuaParser) -> Self:
         stream = parser.token_stream
         pos_start = stream.peek().pos
-        arg: list[
-            data_nodes.ExpNode
-        ] | data_nodes.TableConstrNode | data_nodes.ConstNode
+        arg: (
+            list[data_nodes.ExpNode] | data_nodes.TableConstrNode | data_nodes.ConstNode
+        )
 
         if (node_type := cls._D_T_ARGS[stream.peek()]) is not None:
             arg = parser.parse_parsable(node_type)

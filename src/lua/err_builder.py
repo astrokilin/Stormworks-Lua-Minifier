@@ -1,5 +1,5 @@
 """
- This module provides tools for error strings construction
+This module provides tools for error strings construction
 """
 
 from itertools import chain
@@ -43,9 +43,11 @@ class ErrBuilder:
         line_end: int = bisect_left(self.__positions, text_end_index)
         lines: list[str] = self.__text[
             line_start_offset : self.__positions[
-                line_end
-                if line_end < len(self.__positions)
-                else len(self.__positions) - 1
+                (
+                    line_end
+                    if line_end < len(self.__positions)
+                    else len(self.__positions) - 1
+                )
             ]
         ].split("\n")
         explanation = f"({line_num}, {row_num + 1}): {explanation}"

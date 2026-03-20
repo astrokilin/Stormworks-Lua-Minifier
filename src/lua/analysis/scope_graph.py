@@ -331,7 +331,7 @@ class _ScopeTreeBuilder:
     @_process_statement_node.register(IfNode)
     def _(self, node: IfNode):
         # work on if
-        (block, exp) = node.block_exp
+        block, exp = node.block_exp
         self._process_exp_node(exp)
         self._enter_new_scope()
         self._process_block_node(block)

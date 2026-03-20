@@ -15,6 +15,17 @@ from tkinter import (
 
 from lua import LuaObject, ParsingError
 
+SYNTAX_KEYWORDS_COLOR = "#CB3887"
+SYNTAX_OPERATIONS_COLOR = "#CB3887"
+SYNTAX_NAMES_COLOR = "#C6C5C5"
+SYNTAX_NUMBERS_COLOR = "#976248"
+SYNTAX_STRINGS_COLOR = "#39D072"
+SYNTAX_FUNCTIONS_COLOR = "#36BCBB"
+SYNTAX_COMMENTS_COLOR = "#71706F"
+SYNTAX_OTHER_COLOR = "#71706F"
+
+HIGHLIGHT_COLOR = "#1A354C"
+
 APP_MAIN_BG = "#2b2b2b"
 
 
@@ -48,13 +59,18 @@ def run_app():
     left_text = Text(
         left_frame,
         bg="#1e1e1e",
-        fg="#ffffff",
+        fg=SYNTAX_OTHER_COLOR,
         insertbackground="red",
         font=text_font,
         undo=True,
     )
     left_text.pack(side="left", fill="both", expand=True)
-    left_text.tag_configure("highlight", foreground="#4caf50")
+    left_text.tag_configure(
+        "highlight",
+        background=HIGHLIGHT_COLOR,
+        relief="raised",
+    )
+    left_text.tag_lower("highlight")
     left_text.focus_set()
 
     # center frame
@@ -100,7 +116,11 @@ def run_app():
         root, bg="#1a1a1a", fg="#aaaaaa", font=text_font, state="disabled"
     )
     right_text.grid(row=0, column=2, sticky="nsew", padx=10, pady=10)
-    right_text.tag_configure("highlight", foreground="#4caf50")
+    right_text.tag_configure(
+        "highlight",
+        background=HIGHLIGHT_COLOR,
+        relief="raised",
+    )
     root.columnconfigure(2, weight=1)
 
     # scrollbar stuff
@@ -113,7 +133,95 @@ def run_app():
         command=lambda *args: (left_text.yview(*args), line_numbers.yview(*args))
     )
 
-    def highlight_range(
+    syntax_highlight_tags = [
+        "comment",
+        "keyword",
+        "op",
+        "dot",
+        "string",
+        "numeral",
+        "id",
+        "function",
+    ]
+    left_text.tag_config("comment", foreground=SYNTAX_COMMENTS_COLOR)
+    right_text.tag_config("comment", foreground=SYNTAX_COMMENTS_COLOR)
+
+    left_text.tag_config("keyword", foreground=SYNTAX_KEYWORDS_COLOR)
+    right_text.tag_config("keyword", foreground=SYNTAX_KEYWORDS_COLOR)
+
+    left_text.tag_config("op", foreground=SYNTAX_OPERATIONS_COLOR)
+    right_text.tag_config("op", foreground=SYNTAX_OPERATIONS_COLOR)
+
+    left_text.tag_config("dot", foreground=SYNTAX_OPERATIONS_COLOR)
+    right_text.tag_config("dot", foreground=SYNTAX_OPERATIONS_COLOR)
+
+    left_text.tag_config("string", foreground=SYNTAX_STRINGS_COLOR)
+    right_text.tag_config("string", foreground=SYNTAX_STRINGS_COLOR)
+
+    left_text.tag_config("numeral", foreground=SYNTAX_NUMBERS_COLOR)
+    right_text.tag_config("numeral", foreground=SYNTAX_NUMBERS_COLOR)
+
+    left_text.tag_config("id", foreground=SYNTAX_NAMES_COLOR)
+    right_text.tag_config("id", foreground=SYNTAX_NAMES_COLOR)
+
+    left_text.tag_config("function", foreground=SYNTAX_FUNCTIONS_COLOR)
+    right_text.tag_config("function", foreground=SYNTAX_FUNCTIONS_COLOR)
+
+    job = None
+
+    def index_in_tag_range(text_widget, tag, index):
+        """
+        Returns (start, end) of the tag range containing index,
+        or None if not inside the tag.
+        """
+
+        # Find the first tag range that starts at or after index
+        start = text_widget.tag_prevrange(tag, index)
+
+        if not start:
+            return None
+
+        tag_start, tag_end = start
+
+        if text_widget.compare(tag_start, "<=", index) and text_widget.compare(
+            index, "<", tag_end
+        ):
+            return tag_start, tag_end
+
+        return None
+
+    def syntax_highlight(text_widget, tk_start_ind, tk_end_ind):
+        for start_offset, end_offset, tag_type in LuaObject.syntax_highlight_iter(
+            text_widget.get(tk_start_ind, tk_end_ind)
+        ):
+            s = f"{tk_start_ind} + {start_offset} chars"
+            e = f"{tk_start_ind} + {end_offset} chars"
+            text_widget.tag_add(tag_type, s, e)
+
+    def highlight_visible_left():
+        # Get visible area and extend it in case of multiline lexems on borders
+        start = left_text.index("@0,0")
+
+        if extended_start := index_in_tag_range(left_text, "comment", start):
+            start, _ = extended_start
+
+        end = left_text.index(f"@0,{left_text.winfo_height()}")
+
+        if extended_end := index_in_tag_range(left_text, "comment", end):
+            _, end = extended_end
+
+        for tag in syntax_highlight_tags:
+            left_text.tag_remove(tag, start, end)
+
+        syntax_highlight(left_text, start, end)
+
+    def schedule_highlight(event=None, dur=50):
+        nonlocal job
+        if job:
+            root.after_cancel(job)
+        job = root.after(dur, highlight_visible_left)
+
+    def highlight_debug(
         text_widget, start_offset: int, end_offset: int, tag_name="highlight"
     ):
         start_index = text_widget.index(f"1.0 + {start_offset} chars")
@@ -178,11 +286,12 @@ def run_app():
             tmp = right_text.count("1.0", INSERT, "chars")
             offset = tmp[0] if tmp is not None else 0
             m = right_text_map.map(offset)
-            highlight_range(right_text, m[2], m[3])
-            highlight_range(left_text, m[0], m[1])
+            highlight_debug(right_text, m[2], m[3])
+            highlight_debug(left_text, m[0], m[1])
 
     # actions
     def sync_scroll(*args):
+        schedule_highlight(dur=30)
         update_line_numbers()
 
     def update_line_numbers(event=None):
@@ -213,6 +322,22 @@ def run_app():
         line, col = text_widget.index(INSERT).split(".")
         cursor_label.config(text=f"Line: {line}, Col: {int(col)+1}")
 
+    def set_right_text(text: str, is_error: bool = False):
+        right_text.config(state="normal")
+        right_text.delete("1.0", END)
+        right_text.insert(END, text)
+
+        for tag in right_text.tag_names():
+            right_text.tag_remove(tag, "1.0", "end")
+
+        if is_error:
+            right_text.config(fg="red")
+        else:
+            right_text.config(fg="#aaaaaa")
+            syntax_highlight(right_text, "1.0", "end")
+
+        right_text.config(state="disabled")
+
     # buttons
     def minify_code():
         nonlocal left_text_hash
@@ -226,24 +351,20 @@ def run_app():
             result_map = l_obj.text()
             result = result_map.text
 
-            right_text.config(fg="#aaaaaa")
+            set_right_text(result)
+
             orig_len_label.config(text=f"Original length: {len(code)}")
             rev_len_label.config(text=f"Minified length: {len(result)}")
             prop_label.config(
                 text=f"Proportion: {len(code)/len(result) if code else 0:.2f}"
             )
+
             left_text_hash = hash(code)
             right_text_hash = hash(result)
             right_text_map = result_map
 
         except ParsingError as e:
-            result = str(e)
-            right_text.config(fg="red")
-
-        right_text.config(state="normal")
-        right_text.delete("1.0", END)
-        right_text.insert(END, result)
-        right_text.config(state="disabled")
+            set_right_text(str(e), is_error=True)
 
         update_cursor(left_text)
         update_line_numbers()
@@ -331,11 +452,17 @@ def run_app():
     left_text.bind("<ButtonRelease-1>", handle_left_text_click)
     right_text.bind("<ButtonRelease-1>", handle_right_text_click)
 
-    left_text.bind("<<Modified>>", on_text_change)
+    left_text.bind(
+        "<<Modified>>", lambda e: (on_text_change(e), schedule_highlight(dur=200))
+    )
     right_text.bind("<<Modified>>", on_text_change)
 
-    left_text.bind("<MouseWheel>", update_line_numbers)
-    left_text.bind("<Configure>", update_line_numbers)
+    left_text.bind(
+        "<MouseWheel>", lambda e: (update_line_numbers, schedule_highlight(dur=30))
+    )
+    left_text.bind(
+        "<Configure>", lambda e: (update_line_numbers, schedule_highlight(dur=30))
+    )
 
     # scaling
     root.rowconfigure(0, weight=1)

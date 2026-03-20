@@ -1,4 +1,4 @@
-""" This module represents statements nodes """
+"""This module represents statements nodes"""
 
 from __future__ import annotations
 from typing import Self
@@ -637,7 +637,7 @@ class IfNode(AstNode, Parsable):
         block_exp_list: list[tuple[BlockNode, data_nodes.ExpNode]] = []
         else_block_node = None
 
-        (tmp_exp, tmp_block) = parser.parse_simple_rule(
+        tmp_exp, tmp_block = parser.parse_simple_rule(
             (data_nodes.ExpNode, "then", BlockNode), next(stream).content
         )
 
@@ -645,7 +645,7 @@ class IfNode(AstNode, Parsable):
 
         # parse {elseif exp then block}
         while stream.peek().content == "elseif":
-            (tmp_exp, tmp_block) = parser.parse_simple_rule(
+            tmp_exp, tmp_block = parser.parse_simple_rule(
                 (data_nodes.ExpNode, "then", BlockNode), next(stream).content
             )
             block_exp_list.append((tmp_block, tmp_exp))

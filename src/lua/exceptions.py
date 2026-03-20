@@ -1,5 +1,5 @@
 """
-    This module represents errors during lua parsing
+This module represents errors during lua parsing
 """
 
 

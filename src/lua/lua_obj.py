@@ -1,3 +1,5 @@
+from collections.abc import Generator
+
 from lua.exceptions import ParsingError
 from lua.text_mapper import TextMapper
 from lua.err_builder import ErrBuilder
@@ -47,6 +49,10 @@ class LuaObject:
         """Converts lua abstract syntax tree to short text"""
 
         return TextMapper(self.ast_chunk)
+
+    @staticmethod
+    def syntax_highlight_iter(txt: str) -> Generator[tuple[int, int, str], None, None]:
+        return LuaParser.LEXER.create_syntax_highlight_stream(txt)
 
     def show_ast(self):
         """Prints lua abstract syntax tree, used mostly for debug reasons"""

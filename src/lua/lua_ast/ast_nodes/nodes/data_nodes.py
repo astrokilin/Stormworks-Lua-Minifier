@@ -1,4 +1,4 @@
-""" This module repesents nodes that can handle a data or manipulations with it """
+"""This module repesents nodes that can handle a data or manipulations with it"""
 
 from __future__ import annotations
 from typing import Self
@@ -371,12 +371,14 @@ class ExpNode(AstNode, Parsable):
         self,
         start_index: int,
         end_index: int,
-        data_node: ConstNode
-        | VarargNode
-        | FuncDefNode
-        | PrefExpNode
-        | TableConstrNode
-        | OperationNode,
+        data_node: (
+            ConstNode
+            | VarargNode
+            | FuncDefNode
+            | PrefExpNode
+            | TableConstrNode
+            | OperationNode
+        ),
     ) -> None:
         super().__init__(start_index, end_index)
         self.data_node = data_node

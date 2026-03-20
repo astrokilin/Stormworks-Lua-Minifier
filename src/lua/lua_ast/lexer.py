@@ -4,6 +4,7 @@ This module provides everything connected with lexical structure of lua
 
 from re import finditer
 from collections import deque
+from collections.abc import Generator
 from dataclasses import dataclass
 
 from lua.lua_ast.exceptions import UnexpectedSymbolError
@@ -106,7 +107,7 @@ class BufferedTokenStream:
 class LuaLexer:
     """singleton class representing lua lexical rules"""
 
-    __slots__ = "__final_pattern", "__skip_names"
+    __slots__ = "__final_pattern", "__skip_names", "__syntax_highlight_pattern"
 
     concat_syms = {
         "+",
@@ -189,10 +190,35 @@ class LuaLexer:
         )
         self.__skip_names = {t.name: t.ignore for t in self.LUA_TOKEN_PATTERNS}
 
+        self.__syntax_highlight_pattern = "|".join(
+            [
+                f"(?P<{t.name}>{t.pattern})"
+                for t in [
+                    self.LUA_TOKEN_PATTERNS[1],
+                    self.LUA_TOKEN_PATTERNS[2],
+                    self.LUA_TOKEN_PATTERNS[4],
+                    self.LUA_TOKEN_PATTERNS[5],
+                    self.LUA_TOKEN_PATTERNS[6],
+                    self.LUA_TOKEN_PATTERNS[8],
+                    TokenPattern("function", r"[A-Za-z_][A-Za-z0-9_]*(?=\(.*\))"),
+                    self.LUA_TOKEN_PATTERNS[9],
+                ]
+            ]
+        )
+
     def create_buffered_stream(self, txt: str) -> BufferedTokenStream:
         """create token iterator from text string"""
 
         return BufferedTokenStream(txt, self.__final_pattern, self.__skip_names)
+
+    def create_syntax_highlight_stream(
+        self,
+        txt: str,
+    ) -> Generator[tuple[int, int, str], None, None]:
+        """used to implement syntax highlighting"""
+
+        for match in finditer(self.__syntax_highlight_pattern, txt):
+            yield (match.start(), match.end(), match.lastgroup or "")
 
     @staticmethod
     def is_concat(sym_a: str, sym_b: str) -> bool:

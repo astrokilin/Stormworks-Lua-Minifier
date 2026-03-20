@@ -1,4 +1,4 @@
-""" This module represents binary and unary operations """
+"""This module represents binary and unary operations"""
 
 from __future__ import annotations
 
@@ -44,20 +44,24 @@ class BinOpNode(OperationNode):
         index: int,
         length: int,
         opcode: str,
-        left_operand_node: data_nodes.ConstNode
-        | data_nodes.VarargNode
-        | data_nodes.FuncDefNode
-        | data_nodes.PrefExpNode
-        | data_nodes.TableConstrNode
-        | OperationNode
-        | None = None,
-        right_operand_node: data_nodes.ConstNode
-        | data_nodes.VarargNode
-        | data_nodes.FuncDefNode
-        | data_nodes.PrefExpNode
-        | data_nodes.TableConstrNode
-        | OperationNode
-        | None = None,
+        left_operand_node: (
+            data_nodes.ConstNode
+            | data_nodes.VarargNode
+            | data_nodes.FuncDefNode
+            | data_nodes.PrefExpNode
+            | data_nodes.TableConstrNode
+            | OperationNode
+            | None
+        ) = None,
+        right_operand_node: (
+            data_nodes.ConstNode
+            | data_nodes.VarargNode
+            | data_nodes.FuncDefNode
+            | data_nodes.PrefExpNode
+            | data_nodes.TableConstrNode
+            | OperationNode
+            | None
+        ) = None,
     ) -> None:
         super().__init__(index, length, opcode)
         self.left_operand_node = left_operand_node
@@ -84,13 +88,15 @@ class UnOpNode(OperationNode):
         index: int,
         length: int,
         opcode: str,
-        right_operand_node: data_nodes.ConstNode
-        | data_nodes.VarargNode
-        | data_nodes.FuncDefNode
-        | data_nodes.PrefExpNode
-        | data_nodes.TableConstrNode
-        | UnOpNode
-        | None = None,
+        right_operand_node: (
+            data_nodes.ConstNode
+            | data_nodes.VarargNode
+            | data_nodes.FuncDefNode
+            | data_nodes.PrefExpNode
+            | data_nodes.TableConstrNode
+            | UnOpNode
+            | None
+        ) = None,
     ) -> None:
         super().__init__(index, length, opcode)
         self.right_operand_node = right_operand_node

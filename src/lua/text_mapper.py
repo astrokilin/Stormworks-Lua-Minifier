@@ -1,6 +1,6 @@
 from bisect import bisect
 from dataclasses import dataclass
-from itertools import islice
+from itertools import islice, chain
 
 from lua.lua_ast.ast_nodes.base_nodes import AstNode
 from lua.lua_ast.lexer import LuaLexer
@@ -35,7 +35,13 @@ class TextMapper:
             node.start_index, node.end_index, new_text_end, new_text_end
         )
 
-        for n in node.parse_tree_descendants():
+        # ugly skip of first space in sentence
+        itr = node.parse_tree_descendants()
+        n = next(itr)
+        if isinstance(n, str) and LuaLexer.is_concat(new_text_parts[-1][-1], n[0]):
+            this_node_info.new_text_start += 1
+
+        for n in chain((n,), itr):
             if isinstance(n, str):
                 if LuaLexer.is_concat(new_text_parts[-1][-1], n[0]):
                     this_node_info.new_text_end += 1
@@ -68,6 +74,7 @@ class TextMapper:
 
         TextMapper.__process_node(new_text_parts, pos_list, info_list, 0, node)
 
+        pos_list.pop()
         self.__pos_list = pos_list
         self.__info_list = info_list
         self.text = "".join(islice(new_text_parts, 1, None))
