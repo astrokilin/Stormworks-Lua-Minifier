@@ -15,18 +15,20 @@ from tkinter import (
 
 from lua import LuaObject, ParsingError
 
-SYNTAX_KEYWORDS_COLOR = "#CB3887"
-SYNTAX_OPERATIONS_COLOR = "#CB3887"
-SYNTAX_NAMES_COLOR = "#C6C5C5"
-SYNTAX_NUMBERS_COLOR = "#976248"
-SYNTAX_STRINGS_COLOR = "#39D072"
-SYNTAX_FUNCTIONS_COLOR = "#36BCBB"
-SYNTAX_COMMENTS_COLOR = "#71706F"
-SYNTAX_OTHER_COLOR = "#71706F"
+SYNTAX_KEYWORDS_COLOR = "#e83b99"
+SYNTAX_OPERATIONS_COLOR = "#e83b99"
+SYNTAX_NAMES_COLOR = "#e2e2e2"
+SYNTAX_NUMBERS_COLOR = "#bd7655"
+SYNTAX_STRINGS_COLOR = "#3ada76"
+SYNTAX_FUNCTIONS_COLOR = "#39d3d3"
+SYNTAX_COMMENTS_COLOR = "#757575"
+SYNTAX_OTHER_COLOR = "#757575"
 
 HIGHLIGHT_COLOR = "#1A354C"
 
 APP_MAIN_BG = "#2b2b2b"
+
+# TODO: refactor this mess
 
 
 def run_app():
@@ -62,6 +64,7 @@ def run_app():
         fg=SYNTAX_OTHER_COLOR,
         insertbackground="red",
         font=text_font,
+        tabs=(text_font.measure("    "),),
         undo=True,
     )
     left_text.pack(side="left", fill="both", expand=True)
@@ -113,7 +116,12 @@ def run_app():
 
     # right text box
     right_text = Text(
-        root, bg="#1a1a1a", fg="#aaaaaa", font=text_font, state="disabled"
+        root,
+        bg="#1a1a1a",
+        fg="#aaaaaa",
+        font=text_font,
+        state="disabled",
+        tabs=(text_font.measure("    "),),
     )
     right_text.grid(row=0, column=2, sticky="nsew", padx=10, pady=10)
     right_text.tag_configure(
@@ -143,8 +151,12 @@ def run_app():
         "id",
         "function",
     ]
-    left_text.tag_config("comment", foreground=SYNTAX_COMMENTS_COLOR)
-    right_text.tag_config("comment", foreground=SYNTAX_COMMENTS_COLOR)
+
+    cursive_font = font.Font(family="Consolas", size=12, slant="italic")
+    left_text.tag_config("comment", font=cursive_font, foreground=SYNTAX_COMMENTS_COLOR)
+    right_text.tag_config(
+        "comment", font=cursive_font, foreground=SYNTAX_COMMENTS_COLOR
+    )
 
     left_text.tag_config("keyword", foreground=SYNTAX_KEYWORDS_COLOR)
     right_text.tag_config("keyword", foreground=SYNTAX_KEYWORDS_COLOR)
@@ -291,7 +303,7 @@ def run_app():
 
     # actions
     def sync_scroll(*args):
-        schedule_highlight(dur=30)
+        schedule_highlight(dur=20)
         update_line_numbers()
 
     def update_line_numbers(event=None):
@@ -383,7 +395,7 @@ def run_app():
             text_font.configure(size=size - 1)
 
     def normal_font():
-        text_font.configure(12)
+        text_font.configure(size=12)
 
     button_width = 16
     reverse_button = Button(
@@ -453,7 +465,7 @@ def run_app():
     right_text.bind("<ButtonRelease-1>", handle_right_text_click)
 
     left_text.bind(
-        "<<Modified>>", lambda e: (on_text_change(e), schedule_highlight(dur=200))
+        "<<Modified>>", lambda e: (on_text_change(e), schedule_highlight(dur=100))
     )
     right_text.bind("<<Modified>>", on_text_change)
 

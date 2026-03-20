@@ -3,12 +3,35 @@
 My simple tool to minify lua scripts when 8k symbols is not enought. Works both on Windows and Linux.
 
 ## Features
+### Examine the source of minified segments
+Clicking on minified text fragments highlights its source
+![Source highlighting](images/source_highlight_demo.png)
 
-- Dependency-free (besides Python itself)
-- Simple GUI using Tkinter
-- Runs on both Windows and Linux
-- Requires Python 3.11 or higher
-- Clicking on minified text shows original source
+### Verbose error messages
+Easier to locate and fix typos
+![Parsing error](images/error_1_demo.png)
+Including errors with loops and gotos
+![Control-flow errors](images/error_2_demo.png)
+
+### Optimal renaming strategy
+Consider the following fragment
+```lua
+local a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z, _, long_name
+
+long_name = 45
+```
+
+Tools that do not utilize an optimal strategy would still assign a longer identifier to 'long_name'.
+For example, the output from PonyIDE could illustrate this:
+```lua
+local a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z,A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,_,a0
+a0=45
+```
+which is **121** symbols. This utility ensures that the more frequently a character is used, the shorter its identifier will be.
+Previous example now evaluates to **119** symbols:
+![Optimal renaming](images/optimal_renaming_demo.png)
+
+---
 
 ## Requirements
 
@@ -52,19 +75,6 @@ You have two options to run the app on Windows:
 	python3 src/main.py
 	```
 Tkinter is usually included in default Python distributions on Linux. No extra dependencies are required.
-
----
-
-## Usage
-
-- Launch the application.  
-- Copy your script inside left text box.
-- Press 'Minify'.
-- Copy-paste minified script inside your stormworks microcontroller.
-- Try minified srcipt in game, suppose script errors at (1: 300) with variable 't'
-- Locate this place in minified script in right text box
-- Click on code and app will highlight with green the original script part
-- Debug and repeat
 
 ---
 
