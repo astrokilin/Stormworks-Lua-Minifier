@@ -4,7 +4,7 @@ My simple tool to minify lua scripts when 8k symbols is not enought. Works both 
 
 ## Features
 ### Examine the source of minified segments
-Clicking on minified text fragments highlights its source
+Clicking on minified text fragments highlights their source
 ![Source highlighting](images/source_highlight_demo.png)
 
 ### Verbose error messages
