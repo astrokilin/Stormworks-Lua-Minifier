@@ -37,7 +37,10 @@ class TextMapper:
 
         # ugly skip of first space in sentence
         itr = node.parse_tree_descendants()
-        n = next(itr)
+        n = next(itr, None)
+        if n is None:
+            return new_text_end
+
         if isinstance(n, str) and LuaLexer.is_concat(new_text_parts[-1][-1], n[0]):
             this_node_info.new_text_start += 1
 
