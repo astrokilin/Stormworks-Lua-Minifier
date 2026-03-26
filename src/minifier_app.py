@@ -1,3 +1,4 @@
+from traceback import format_exc
 from tkinter import (
     Tk,
     Frame,
@@ -377,6 +378,8 @@ def run_app():
 
         except ParsingError as e:
             set_right_text(str(e), is_error=True)
+        except Exception as e:
+            set_right_text(str(format_exc()), is_error=True)
 
         update_cursor(left_text)
         update_line_numbers()
