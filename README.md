@@ -1,6 +1,6 @@
 # Lua minifier for stormworks
 
-My simple tool to minify lua scripts when 8k symbols is not enought. Works both on Windows and Linux.
+My simple tool to minify lua scripts when 8k symbols is not enough. Works both on Windows and Linux.
 
 ## Features
 ### Examine the source of minified segments
